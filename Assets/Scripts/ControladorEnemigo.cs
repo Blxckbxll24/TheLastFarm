@@ -3,31 +3,47 @@ using System.Collections;
 
 public class ControladorEnemigo : MonoBehaviour
 {
-    // --- Variables Configurables ---
+    // Variables Configurables
     [Header("Estadísticas")]
-    public int salud = 30; // Reducido para pruebas más fáciles
+    public int salud = 30;
     public float velocidadMovimiento = 2.5f;
+    public int daño = 20;
     
     [Header("Detección del Jugador")]
-    public float distanciaDeteccion = 5f; // Distancia para empezar a perseguir
-    public float distanciaAtaque = 1.5f;   // Distancia para atacar
-    public float distanciaParada = 0.5f;   // Distancia mínima antes de parar
+    public float distanciaDeteccion = 5f;
+    public float distanciaAtaque = 1.0f; // REDUCIDO de 1.5f a 1.0f
+    public float distanciaParada = 0.3f; // REDUCIDO de 0.5f a 0.3f
+    
+    [Header("⚡ Configuración de Colisiones")]
+    [SerializeField] private bool evitarSuperponer = true;
+    [SerializeField] private float radioEvitarZombies = 1f;
+    [SerializeField] private float fuerzaRepulsion = 3f;
+    [SerializeField] private LayerMask capaZombies;
+    [SerializeField] private float tiempoUltimoAtaque = 0f;
+    [SerializeField] private float cooldownAtaque = 2f; // AUMENTADO de 1.5f a 2f
+    [SerializeField] private bool verificarLineaDeVista = true; // NUEVO: Verificar línea de vista
+    [SerializeField] private LayerMask capasObstaculos; // NUEVO: Capas que bloquean ataques
     
     [Header("Animaciones")]
     // Asegúrate de que este Animator esté en el GameObject o un hijo y tiene un Animator Controller
     public Animator animator; 
 
+    [Header("⚡ Sistema de Retroceso")]
+    public float fuerzaRetroceso = 8f; // Fuerza del retroceso cuando recibe daño
+    public float tiempoRetroceso = 0.5f; // Tiempo que dura el retroceso
+    public bool puedeRecibirRetroceso = true; // Si puede ser empujado
+    
     // --- Referencias Internas ---
     private Transform jugador; // Para guardar la posición del jugador
     private Rigidbody2D rb;
-    private SpriteRenderer spriteRenderer; 
-
+    private SpriteRenderer spriteRenderer;
+    
     // --- Estados del Enemigo ---
     private bool estaMirandoDerecha = true;
     private bool jugadorDetectado = false;
     private bool estaAtacando = false;
+    private bool estaEnRetroceso = false; // 🔥 NUEVO: Estado de retroceso
     private float distanciaAlJugador;
-
 
     // Start se llama una vez cuando el juego comienza
     void Start()
@@ -119,13 +135,36 @@ public class ControladorEnemigo : MonoBehaviour
         // Advertencia si falta un componente esencial
       //  if (rb == null) Debug.LogError("¡Falta Rigidbody2D en el enemigo!");
         //if (spriteRenderer == null) Debug.LogError("¡Falta SpriteRenderer! El enemigo no se verá.");
+        
+        // 🔧 CONFIGURAR LAYER DE ZOMBIES
+        if (capaZombies.value == 0)
+        {
+            capaZombies = LayerMask.GetMask("Enemy"); // Auto-configurar si no está asignado
+        }
+        
+        // 🔧 ASEGURAR QUE EL ZOMBIE TENGA EL LAYER CORRECTO
+        gameObject.layer = LayerMask.NameToLayer("Enemy");
+        if (gameObject.layer == -1)
+        {
+            gameObject.layer = 0; // Default si no existe Enemy layer
+        }
+        
+        Debug.LogError("🧟 ZOMBIE INICIALIZADO - Layer: " + LayerMask.LayerToName(gameObject.layer));
     }
     
     // Update se llama en cada fotograma
     void Update()
     {
-        // Si no encontramos al jugador, no hacemos nada
         if (jugador == null) return;
+
+        // 🔥 NO HACER NADA DURANTE EL RETROCESO
+        if (estaEnRetroceso) return;
+
+        // 🚫 EVITAR SUPERPOSICIÓN CON OTROS ZOMBIES
+        if (evitarSuperponer)
+        {
+            EvitarOtrosZombies();
+        }
 
         // Calcular distancia al jugador
         distanciaAlJugador = Vector2.Distance(transform.position, jugador.position);
@@ -139,7 +178,7 @@ public class ControladorEnemigo : MonoBehaviour
             PerseguirJugador();
         }
         // --- ESTADO: ATACAR ---
-        else if (jugadorDetectado && distanciaAlJugador <= distanciaAtaque && !estaAtacando)
+        else if (jugadorDetectado && distanciaAlJugador <= distanciaAtaque && !estaAtacando && PuedeAtacar())
         {
             IniciarAtaque();
         }
@@ -156,6 +195,46 @@ public class ControladorEnemigo : MonoBehaviour
         
         // Actualizar animaciones
         ActualizarAnimaciones();
+    }
+    
+    // 🚫 MÉTODO PARA EVITAR QUE LOS ZOMBIES SE SUBAN UNOS SOBRE OTROS
+    private void EvitarOtrosZombies()
+    {
+        Collider2D[] zombiesCercanos = Physics2D.OverlapCircleAll(transform.position, radioEvitarZombies, capaZombies);
+        
+        Vector2 fuerzaRepulsionTotal = Vector2.zero;
+        int zombiesDetectados = 0;
+        
+        foreach (Collider2D otroZombie in zombiesCercanos)
+        {
+            if (otroZombie.gameObject != gameObject) // No considerarse a sí mismo
+            {
+                Vector2 direccionRepulsion = (transform.position - otroZombie.transform.position).normalized;
+                float distancia = Vector2.Distance(transform.position, otroZombie.transform.position);
+                
+                // Fuerza inversamente proporcional a la distancia
+                float fuerzaMagnitud = fuerzaRepulsion / Mathf.Max(distancia, 0.1f);
+                fuerzaRepulsionTotal += direccionRepulsion * fuerzaMagnitud;
+                zombiesDetectados++;
+            }
+        }
+        
+        // Aplicar fuerza de repulsión si hay zombies cercanos
+        if (zombiesDetectados > 0 && rb != null)
+        {
+            rb.AddForce(fuerzaRepulsionTotal, ForceMode2D.Force);
+            
+            if (Time.frameCount % 120 == 0) // Debug ocasional
+            {
+                Debug.LogError("🚫 SEPARANDO ZOMBIES - Fuerza: " + fuerzaRepulsionTotal.magnitude + " | Zombies cercanos: " + zombiesDetectados);
+            }
+        }
+    }
+    
+    // 🕒 VERIFICAR SI PUEDE ATACAR (COOLDOWN)
+    private bool PuedeAtacar()
+    {
+        return Time.time >= tiempoUltimoAtaque + cooldownAtaque;
     }
     
     private void PerseguirJugador()
@@ -184,20 +263,126 @@ public class ControladorEnemigo : MonoBehaviour
     
     private void IniciarAtaque()
     {
+        // VERIFICACIÓN ADICIONAL DE DISTANCIA ANTES DEL ATAQUE
+        float distanciaActual = Vector2.Distance(transform.position, jugador.position);
+        if (distanciaActual > distanciaAtaque)
+        {
+            Debug.LogError($"❌ ATAQUE CANCELADO - Distancia {distanciaActual:F2} > {distanciaAtaque}");
+            return;
+        }
+        
         // Parar movimiento durante el ataque
         rb.linearVelocity = new Vector2(0, rb.linearVelocity.y);
         
-        if (!estaAtacando)
+        if (!estaAtacando && PuedeAtacar())
         {
             estaAtacando = true;
-            //Debug.Log("¡Enemigo atacando!");
+            tiempoUltimoAtaque = Time.time;
             
-            // Enviar parámetro de animación de ataque (si lo tienes)
-            // if (animator != null) { animator.SetTrigger("Attack"); }
+            Debug.LogError($"🧟 ZOMBIE INICIANDO ATAQUE! Distancia: {distanciaActual:F2}");
+            
+            // Pequeña pausa antes de aplicar daño para hacer el ataque más predecible
+            Invoke("EjecutarAtaque", 0.2f);
             
             // Simular duración del ataque
             Invoke("TerminarAtaque", 1f);
         }
+    }
+    
+    // NUEVO MÉTODO: Ejecutar el ataque después de una pequeña pausa
+    private void EjecutarAtaque()
+    {
+        if (!estaAtacando || jugador == null) return;
+        
+        // Verificar distancia nuevamente por si el jugador se alejó
+        float distanciaFinal = Vector2.Distance(transform.position, jugador.position);
+        if (distanciaFinal > distanciaAtaque)
+        {
+            Debug.LogError($"❌ ATAQUE FALLIDO - Jugador se alejó. Distancia: {distanciaFinal:F2}");
+            return;
+        }
+        
+        MovimientoJugador jugadorScript = jugador.GetComponent<MovimientoJugador>();
+        if (jugadorScript != null)
+        {
+            bool puedeHacerDaño = VerificarCondicionesDaño(jugadorScript);
+            
+            if (puedeHacerDaño)
+            {
+                jugadorScript.RecibirDaño(daño);
+                Debug.LogError($"🧟 ¡ZOMBIE ATACÓ AL JUGADOR! Daño: {daño} | Distancia final: {distanciaFinal:F2}");
+            }
+            else
+            {
+                Debug.LogError("🛡️ CONDICIONES DE DAÑO NO CUMPLIDAS EN EJECUCIÓN");
+            }
+        }
+    }
+    
+    // 🔍 VERIFICAR CONDICIONES PARA HACER DAÑO AL JUGADOR
+    private bool VerificarCondicionesDaño(MovimientoJugador jugadorScript)
+    {
+        // 1. No hacer daño si el jugador es inmune o está atacando
+        if (jugadorScript.EsInmune() || jugadorScript.EstaAtacando())
+        {
+            Debug.LogError("🛡️ JUGADOR INMUNE O ATACANDO - No se aplica daño");
+            return false;
+        }
+        
+        // 2. VERIFICAR DISTANCIA EXACTA
+        float distanciaReal = Vector2.Distance(transform.position, jugador.position);
+        if (distanciaReal > distanciaAtaque)
+        {
+            Debug.LogError($"📏 DEMASIADO LEJOS - Distancia: {distanciaReal:F2} | Máximo: {distanciaAtaque}");
+            return false;
+        }
+        
+        // 3. VERIFICAR LÍNEA DE VISTA (NUEVO)
+        if (verificarLineaDeVista)
+        {
+            Vector2 direccionAlJugador = (jugador.position - transform.position).normalized;
+            float distanciaLineaVista = Vector2.Distance(transform.position, jugador.position);
+            
+            RaycastHit2D hit = Physics2D.Raycast(transform.position, direccionAlJugador, distanciaLineaVista, capasObstaculos);
+            
+            if (hit.collider != null && !hit.collider.CompareTag("Player"))
+            {
+                Debug.LogError($"🚫 LÍNEA DE VISTA BLOQUEADA por: {hit.collider.name}");
+                return false;
+            }
+            
+            // Debug visual de la línea de vista
+            Debug.DrawRay(transform.position, direccionAlJugador * distanciaLineaVista, Color.red, 0.1f);
+        }
+        
+        // 4. VERIFICAR POSICIÓN RELATIVA DEL JUGADOR (MEJORADO)
+        float diferenciaY = Mathf.Abs(jugador.position.y - transform.position.y);
+        float diferenciaX = Mathf.Abs(jugador.position.x - transform.position.x);
+        
+        // Si el jugador está MUY por encima del zombie (saltando sobre él)
+        if (jugador.position.y > transform.position.y + 1.2f)
+        {
+            Debug.LogError($"🦘 JUGADOR SALTANDO SOBRE ZOMBIE - Diferencia Y: {diferenciaY:F2}");
+            return false;
+        }
+        
+        // Si está demasiado lejos horizontalmente
+        if (diferenciaX > distanciaAtaque * 0.8f)
+        {
+            Debug.LogError($"↔️ DEMASIADO LEJOS HORIZONTALMENTE - Diferencia X: {diferenciaX:F2}");
+            return false;
+        }
+        
+        // 5. VERIFICAR QUE EL ZOMBIE ESTÉ MIRANDO HACIA EL JUGADOR
+        bool jugadorALaDerecha = jugador.position.x > transform.position.x;
+        if (jugadorALaDerecha != estaMirandoDerecha)
+        {
+            Debug.LogError("👀 ZOMBIE NO ESTÁ MIRANDO AL JUGADOR");
+            return false;
+        }
+        
+        Debug.LogError($"✅ CONDICIONES DE DAÑO VÁLIDAS - Dist: {distanciaReal:F2} | Dif Y: {diferenciaY:F2} | Dif X: {diferenciaX:F2}");
+        return true;
     }
     
     private void TerminarAtaque()
@@ -218,7 +403,7 @@ public class ControladorEnemigo : MonoBehaviour
             
             // Parámetro para velocidad de movimiento (normalizado entre 0 y 1)
             float velocidadX = Mathf.Abs(rb.linearVelocity.x);
-            float movementNormalizado = velocidadX / velocidadMovimiento; // Normaliza entre 0 y 1
+            float movementNormalizado = estaEnRetroceso ? 0 : velocidadX / velocidadMovimiento; // No animar durante retroceso
             
             // Debug para ver los valores
             //Debug.Log("Velocidad X: " + velocidadX + " | Movement normalizado: " + movementNormalizado + " | Velocidad máxima: " + velocidadMovimiento);
@@ -266,6 +451,12 @@ public class ControladorEnemigo : MonoBehaviour
         salud -= cantidadDaño;
       //  Debug.Log("Enemigo recibió " + cantidadDaño + " de daño. Salud restante: " + salud);
 
+        // 🔥 APLICAR RETROCESO CUANDO RECIBE DAÑO
+        if (puedeRecibirRetroceso && jugador != null)
+        {
+            AplicarRetroceso();
+        }
+
         // Efecto visual de daño (cambiar color temporalmente)
         if (spriteRenderer != null)
         {
@@ -281,6 +472,38 @@ public class ControladorEnemigo : MonoBehaviour
             // Enviar animación de recibir daño (si lo tienes)
             // animator.SetTrigger("Hurt");
         }
+    }
+    
+    // 🔥 MÉTODO PARA APLICAR RETROCESO
+    private void AplicarRetroceso()
+    {
+        if (estaEnRetroceso || jugador == null || rb == null) return;
+        
+        estaEnRetroceso = true;
+        
+        // Calcular dirección opuesta al jugador
+        Vector2 direccionRetroceso = (transform.position - jugador.position).normalized;
+        
+        // Aplicar fuerza de retroceso
+        rb.AddForce(direccionRetroceso * fuerzaRetroceso, ForceMode2D.Impulse);
+        
+        Debug.LogError("💥 RETROCESO APLICADO: " + direccionRetroceso + " con fuerza " + fuerzaRetroceso);
+        
+        // Terminar retroceso después del tiempo especificado
+        Invoke("TerminarRetroceso", tiempoRetroceso);
+    }
+    
+    private void TerminarRetroceso()
+    {
+        estaEnRetroceso = false;
+        
+        // Reducir velocidad gradualmente
+        if (rb != null)
+        {
+            rb.linearVelocity = new Vector2(rb.linearVelocity.x * 0.5f, rb.linearVelocity.y);
+        }
+        
+        Debug.LogError("✅ RETROCESO TERMINADO");
     }
     
     // Método alternativo para el sistema de ataque del jugador
@@ -305,7 +528,7 @@ public class ControladorEnemigo : MonoBehaviour
     // --- 4. Función para morir ---
     private void Morir()
     {
-        // Debug.Log("El enemigo ha muerto.");
+        Debug.LogError("💀 ZOMBIE MURIENDO...");
         
         // Detener movimiento
         if (rb != null)
@@ -379,19 +602,87 @@ public class ControladorEnemigo : MonoBehaviour
         Gizmos.color = jugadorDetectado ? Color.red : Color.yellow;
         Gizmos.DrawWireSphere(transform.position, distanciaDeteccion);
         
-        // Dibujar círculo de ataque
-        Gizmos.color = Color.red;
+        // Dibujar círculo de ataque (MÁS VISIBLE)
+        Gizmos.color = estaAtacando ? Color.red : Color.orange;
         Gizmos.DrawWireSphere(transform.position, distanciaAtaque);
         
         // Dibujar círculo de parada
         Gizmos.color = Color.blue;
         Gizmos.DrawWireSphere(transform.position, distanciaParada);
         
-        // Línea al jugador si está detectado
-        if (jugador != null && jugadorDetectado)
+        // NUEVO: Mostrar línea de vista al jugador
+        if (jugador != null && verificarLineaDeVista)
         {
-            Gizmos.color = Color.green;
-            Gizmos.DrawLine(transform.position, jugador.position);
+            Vector2 direccionAlJugador = (jugador.position - transform.position).normalized;
+            float distanciaLineaVista = Vector2.Distance(transform.position, jugador.position);
+            
+            Gizmos.color = jugadorDetectado ? Color.green : Color.gray;
+            Gizmos.DrawRay(transform.position, direccionAlJugador * Mathf.Min(distanciaLineaVista, distanciaDeteccion));
+        }
+        
+        // Información de estado en el editor (MEJORADA)
+        if (Application.isPlaying && jugador != null)
+        {
+            float dist = Vector2.Distance(transform.position, jugador.position);
+            UnityEditor.Handles.Label(transform.position + Vector3.up * 1.5f, 
+                $"🧟 S:{salud} D:{dist:F1}" + 
+                (estaAtacando ? "⚔️" : "") + 
+                (estaEnRetroceso ? "💥" : "") + 
+                (jugadorDetectado ? "👁️" : "") +
+                (PuedeAtacar() ? "" : $"⏱️{(tiempoUltimoAtaque + cooldownAtaque - Time.time):F1}s"));
+        }
+    }
+    
+    // --- 7. Nuevos métodos para el sistema de logros ---
+    // (Ejemplo: registrar zombie muerto)
+    /*
+    public void RegistrarZombieMuerto()
+    {
+        if (sistemaLogros != null)
+        {
+            sistemaLogros.RegistrarEvento("ZombieMuerto");
+        }
+    }
+    */
+
+    // 🔄 MEJORADO: SISTEMA DE COLISIONES PARA DETECCIÓN DE DAÑO
+    private void OnTriggerEnter2D(Collider2D other)
+    {
+        // DESACTIVAR TEMPORALMENTE EL DAÑO POR TRIGGER PARA EVITAR DOBLE DAÑO
+        return; // Comentar esta línea si quieres reactivar el daño por trigger
+        
+        // Verificar si es el jugador
+        if (other.CompareTag("Player") || other.GetComponent<MovimientoJugador>() != null)
+        {
+            // Solo aplicar daño por trigger si NO está en modo ataque normal
+            if (estaAtacando) return; // Evitar doble daño
+            
+            MovimientoJugador jugadorScript = other.GetComponent<MovimientoJugador>();
+            if (jugadorScript != null)
+            {
+                Debug.LogError("🔥 TRIGGER: ZOMBIE DETECTÓ JUGADOR");
+                
+                // Verificar condiciones para hacer daño
+                bool puedeHacerDaño = VerificarCondicionesDaño(jugadorScript);
+                
+                if (puedeHacerDaño && PuedeAtacar())
+                {
+                    tiempoUltimoAtaque = Time.time;
+                    jugadorScript.RecibirDaño(daño);
+                    Debug.LogError("⚡ DAÑO POR CONTACTO! Daño: " + daño);
+                    
+                    // Pequeño retroceso del zombie para evitar spam de daño
+                    if (rb != null)
+                    {
+                        Vector2 direccionRetroceso = (transform.position - other.transform.position).normalized;
+                        rb.AddForce(direccionRetroceso * 2f, ForceMode2D.Impulse);
+                    }
+                }
+                else
+                {
+                    Debug.LogError("🛡️ Condiciones de daño no cumplidas");
+                }
+            }
         }
     }
 }

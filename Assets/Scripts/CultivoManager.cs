@@ -1,6 +1,7 @@
 using UnityEngine;
 using UnityEngine.Tilemaps;
 using System.Collections.Generic;
+using System.Collections;
 
 public class CultivoManager : MonoBehaviour
 {
@@ -11,6 +12,40 @@ public class CultivoManager : MonoBehaviour
     
     // Lista de Tiles de Crecimiento (debes asignarlos en el Inspector en orden)
     public Tile[] tilesDeCrecimiento; // Índice 0=Semilla, 1-9=Etapas de crecimiento
+    
+    [Header("🚶‍♂️ CONFIGURACIÓN DE COLLIDERS")]
+    [SerializeField] private bool soloSemillaTieneCollider = true;
+    [SerializeField] private bool mostrarDebugColliders = false; // Reducido debug
+    
+    [Header("✨ SISTEMA DE RESALTADO")]
+    [SerializeField] private bool activarResaltado = true;
+    [SerializeField] private Color colorResaltado = new Color(1f, 1f, 0f, 0.6f);
+    [SerializeField] private float velocidadParpadeo = 2f;
+    [SerializeField] private bool mostrarDebugResaltado = false; // Reducido debug
+    [SerializeField] private bool usarOverlay = true;
+    
+    [Header("🥕 SISTEMA DE ZANAHORIAS")]
+    [SerializeField] private GameObject prefabZanahoria;
+    [SerializeField] private int valorZanahoria = 1;
+    [SerializeField] private int cantidadZanahoriasPorCosecha = 1;
+    [SerializeField] private float fuerzaLanzamiento = 5f;
+    [SerializeField] private float alturaLanzamiento = 2f;
+    [SerializeField] private bool efectoLanzamiento = true;
+    [SerializeField] private bool mostrarDebugZanahorias = false; // Reducido debug
+    
+    [Header("🎬 Sistema de Animaciones")]
+    [SerializeField] private bool activarAnimaciones = true;
+    [SerializeField] private string nombreAnimacionCultivando = "cultivando";
+    [SerializeField] private float duracionAnimacionCultivando = 1.5f;
+    [SerializeField] private bool mostrarDebugAnimaciones = false; // Reducido debug
+
+    // Variables internas para el resaltado
+    private Vector3Int celdaResaltada = Vector3Int.zero;
+    private bool hayResaltado = false;
+    private TileBase tileOriginal;
+    private Color colorOriginal;
+    private float tiempoParpadeo = 0f;
+    private GameObject overlayResaltado;
 
     // Diccionario para rastrear los cultivos plantados
     private Dictionary<Vector3Int, CultivoData> cultivosPlantados = new Dictionary<Vector3Int, CultivoData>();
@@ -18,258 +53,187 @@ public class CultivoManager : MonoBehaviour
     // Referencia de la cámara para la interacción
     private Camera mainCamera;
 
+    // Variables para el sistema de animaciones
+    private MovimientoJugador jugadorScript;
+    private Animator jugadorAnimator;
+    private bool estaAnimandoCultivo = false;
+
     void Start()
     {
-        // MENSAJE PRIORITARIO PARA VERIFICAR EJECUCIÓN
-        Debug.LogError("🚨 CULTIVO MANAGER START EJECUTÁNDOSE 🚨");
-        Debug.LogWarning("Si ves este mensaje, el CultivoManager SÍ está funcionando");
+        Debug.LogError("🌱 CULTIVO MANAGER INICIANDO...");
+        
+        // 🔧 Detectar escena y optimizar
+        string escenaActual = UnityEngine.SceneManagement.SceneManager.GetActiveScene().name;
+        bool esEscena1 = escenaActual.Contains("Escena1") || escenaActual.Contains("1");
+        
+        if (esEscena1)
+        {
+            Debug.LogError("🎯 DETECTADA ESCENA1 - Aplicando optimizaciones");
+            // Desactivar debugs intensivos
+            mostrarDebugResaltado = false;
+            mostrarDebugAnimaciones = false;
+            mostrarDebugZanahorias = false;
+            mostrarDebugColliders = false;
+            // Mantener funcionalidad pero sin resaltado para performance
+            activarResaltado = false;
+        }
         
         mainCamera = Camera.main;
         
-        // 🔍 DEBUG: Verificar referencias
-        Debug.LogError("=== CULTIVO MANAGER - START EJECUTADO ===");
-        Debug.LogError("Si ves este mensaje, el script SÍ está funcionando");
-        Debug.Log("Camera encontrada: " + (mainCamera != null ? "✅" : "❌"));
-        Debug.Log("Suelo Tilemap asignado: " + (sueloTilemap != null ? "✅" : "❌"));
-        Debug.Log("Cultivos Tilemap asignado: " + (cultivosTilemap != null ? "✅" : "❌"));
-        Debug.Log("Tile Tierra Cultivable asignado: " + (tileTierraCultivable != null ? "✅" : "❌"));
-        Debug.Log("Tiles de Crecimiento asignados: " + (tilesDeCrecimiento != null && tilesDeCrecimiento.Length > 0 ? tilesDeCrecimiento.Length + " tiles" : "❌ NINGUNO"));
-        
-        // 🔍 DEBUG ADICIONAL: Posición del jugador vs cámara
-        GameObject jugador = GameObject.FindWithTag("Player");
-        if (jugador != null)
+        // Verificar configuración básica
+        if (!VerificarConfiguracion())
         {
-            Debug.Log("📍 Jugador encontrado en posición: " + jugador.transform.position);
-            Debug.Log("📷 Cámara en posición: " + mainCamera.transform.position);
-            float distancia = Vector3.Distance(jugador.transform.position, mainCamera.transform.position);
-            Debug.Log("📏 Distancia cámara-jugador: " + distancia.ToString("F2"));
-        }
-        else
-        {
-            Debug.LogWarning("⚠️ No se encontró jugador con tag 'Player'");
-        }
-        
-        if (tilesDeCrecimiento != null)
-        {
-            for (int i = 0; i < tilesDeCrecimiento.Length; i++)
-            {
-                Debug.Log("  - Tile[" + i + "]: " + (tilesDeCrecimiento[i] != null ? "✅ " + tilesDeCrecimiento[i].name : "❌ NULL"));
-            }
-        }
-        Debug.Log("=== FIN VERIFICACIÓN ===");
-        
-        // 🚨 VERIFICACIÓN CRÍTICA
-        if (sueloTilemap == null || cultivosTilemap == null || tileTierraCultivable == null || 
-            tilesDeCrecimiento == null || tilesDeCrecimiento.Length < 9)
-        {
-            Debug.LogError("🚨 CULTIVO MANAGER MAL CONFIGURADO!");
-            Debug.LogError("   Ve al Inspector y asigna TODAS las referencias requeridas:");
-            Debug.LogError("   - Suelo Tilemap");
-            Debug.LogError("   - Cultivos Tilemap"); 
-            Debug.LogError("   - Tile Tierra Cultivable");
-            Debug.LogError("   - Tiles de Crecimiento (necesarios: 9 tiles)");
-            if (tilesDeCrecimiento != null)
-            {
-                Debug.LogError("   - Tiles actuales: " + tilesDeCrecimiento.Length + "/9");
-            }
-            Debug.LogError("   ⚠️ EL SISTEMA NO FUNCIONARÁ HASTA QUE SE CONFIGURE!");
+            Debug.LogError("🚨 CULTIVO MANAGER MAL CONFIGURADO - DESACTIVANDO");
+            enabled = false;
             return;
         }
         
-        Debug.Log("✅ Configuración básica correcta, sistema listo con " + tilesDeCrecimiento.Length + " tiles de crecimiento");
+        // Inicializar sistemas
+        if (activarResaltado)
+        {
+            InicializarSistemaResaltado();
+        }
+        
+        if (activarAnimaciones)
+        {
+            InicializarSistemaAnimaciones();
+        }
+        
+        Debug.LogError("✅ CULTIVO MANAGER INICIADO CORRECTAMENTE");
     }
-    // ... (continúa con el paso 4 y 5)
-// ... (continuación de CultivoManager.cs)
 
     void Update()
     {
-        // DEBUG SIMPLE - para verificar que el script funciona
-        if (Time.time % 2f < 0.1f) // Cada 2 segundos
+        // 🔧 Optimización para Escena1
+        string escenaActual = UnityEngine.SceneManagement.SceneManager.GetActiveScene().name;
+        bool esEscena1 = escenaActual.Contains("Escena1") || escenaActual.Contains("1");
+        
+        if (esEscena1 && Time.frameCount % 3 != 0)
         {
-            Debug.LogWarning("🌱 CULTIVO MANAGER ACTIVO - " + Time.time.ToString("F1") + "s");
+            return; // Procesar solo cada 3 frames en Escena1
         }
         
-        // 1. Manejar la Plantación (Cambié a clic derecho para evitar conflicto con ataque)
-        if (Input.GetMouseButtonDown(1)) // Clic derecho para plantar
+        // 1. Manejar plantación con clic derecho
+        if (Input.GetMouseButtonDown(1))
         {
-            Debug.LogError("🖱️ CLIC DERECHO DETECTADO - Iniciando plantación...");
-            
-            Vector3 mouseScreenPos = Input.mousePosition;
             Vector3 mouseWorldPos = mainCamera.ScreenToWorldPoint(Input.mousePosition);
-            
-            Debug.Log("📍 Posición del mouse:");
-            Debug.Log("  - En pantalla: " + mouseScreenPos);
-            Debug.Log("  - En mundo (raw): " + mouseWorldPos);
-            Debug.Log("  - En mundo (Z=0): " + new Vector3(mouseWorldPos.x, mouseWorldPos.y, 0));
-            
-            // Convertir la posición mundial a la celda del Tilemap
             Vector3Int cellPos = cultivosTilemap.WorldToCell(mouseWorldPos);
-            Debug.Log("  - Celda calculada: " + cellPos);
             
-            // 🔍 VERIFICAR QUÉ HAY EN ESA POSICIÓN ANTES DE PLANTAR
-            TileBase tileEnEsaPosicion = sueloTilemap.GetTile(cellPos);
-            if (tileEnEsaPosicion == null)
+            if (activarAnimaciones && !estaAnimandoCultivo && jugadorAnimator != null)
             {
-                Debug.LogWarning("⚠️ No hay tile en la posición del clic. Buscando tiles cercanos...");
-                
-                // Buscar tiles en un radio pequeño alrededor del clic
-                bool encontroTileCercano = false;
-                for (int dx = -2; dx <= 2 && !encontroTileCercano; dx++)
-                {
-                    for (int dy = -2; dy <= 2 && !encontroTileCercano; dy++)
-                    {
-                        Vector3Int posicionCercana = cellPos + new Vector3Int(dx, dy, 0);
-                        TileBase tileCercano = sueloTilemap.GetTile(posicionCercana);
-                        
-                        if (tileCercano != null)
-                        {
-                            Debug.Log("✅ Tile cercano encontrado: '" + tileCercano.name + "' en " + posicionCercana);
-                            Debug.Log("   Distancia del clic: " + (dx == 0 && dy == 0 ? "mismo lugar" : dx + "," + dy + " celdas"));
-                            encontroTileCercano = true;
-                        }
-                    }
-                }
-                
-                if (!encontroTileCercano)
-                {
-                    Debug.LogError("❌ No hay tiles en un radio de 2 celdas. ¿Pintaste tiles con Tile Palette?");
-                }
+                IniciarAnimacionCultivo(() => {
+                    IntentarPlantar(cellPos, "Zanahoria");
+                });
             }
-            
-            // 🔍 VERIFICAR POSICIÓN DEL JUGADOR
-            GameObject jugador = GameObject.FindWithTag("Player");
-            if (jugador != null)
+            else
             {
-                float distanciaAlJugador = Vector3.Distance(new Vector3(mouseWorldPos.x, mouseWorldPos.y, 0), jugador.transform.position);
-                Debug.Log("  - Distancia al jugador: " + distanciaAlJugador.ToString("F2"));
+                IntentarPlantar(cellPos, "Zanahoria");
             }
-
-            IntentarPlantar(cellPos, "Zanahoria"); // Intentar plantar una "Zanahoria"
         }
         
-        // Agregar cosechar con tecla C
+        // 2. Manejar cosecha con tecla C
         if (Input.GetKeyDown(KeyCode.C))
         {
-            Debug.LogError("🧺 TECLA C PRESIONADA - Intentando cosechar...");
-            
             Vector3 mouseWorldPos = mainCamera.ScreenToWorldPoint(Input.mousePosition);
             Vector3Int cellPos = cultivosTilemap.WorldToCell(mouseWorldPos);
             
-            CosecharCultivo(cellPos);
+            if (activarAnimaciones && !estaAnimandoCultivo && jugadorAnimator != null)
+            {
+                IniciarAnimacionCultivo(() => {
+                    CosecharCultivo(cellPos);
+                });
+            }
+            else
+            {
+                CosecharCultivo(cellPos);
+            }
         }
 
-        // 2. Manejar el Crecimiento
+        // 3. Manejar crecimiento
         ManejarCrecimiento();
+        
+        // 4. Sistema de resaltado (solo si está activado y no es Escena1)
+        if (activarResaltado && !esEscena1)
+        {
+            ManejarResaltadoCultivos();
+        }
     }
     
-    // Función para verificar y plantar
-    private void IntentarPlantar(Vector3Int cellPos, string tipo)
+    private bool VerificarConfiguracion()
     {
-        Debug.Log("🌱 INTENTAR PLANTAR en celda: " + cellPos + " | Tipo: " + tipo);
-        
-        // Verificaciones de seguridad
         if (sueloTilemap == null)
         {
-            Debug.LogError("❌ ERROR: sueloTilemap es NULL!");
-            return;
+            Debug.LogError("❌ Suelo Tilemap NO ASIGNADO");
+            return false;
         }
         
         if (cultivosTilemap == null)
         {
-            Debug.LogError("❌ ERROR: cultivosTilemap es NULL!");
-            return;
+            Debug.LogError("❌ Cultivos Tilemap NO ASIGNADO");
+            return false;
         }
         
         if (tileTierraCultivable == null)
         {
-            Debug.LogError("❌ ERROR: tileTierraCultivable es NULL!");
-            return;
+            Debug.LogError("❌ Tile Tierra Cultivable NO ASIGNADO");
+            return false;
         }
         
         if (tilesDeCrecimiento == null || tilesDeCrecimiento.Length < 10)
         {
-            Debug.LogError("❌ ERROR: tilesDeCrecimiento no está configurado correctamente!");
+            Debug.LogError("❌ Tiles de Crecimiento INCOMPLETOS");
             if (tilesDeCrecimiento != null)
             {
                 Debug.LogError("   Tiles actuales: " + tilesDeCrecimiento.Length + "/10 requeridos");
             }
-            return;
+            return false;
         }
+        
+        return true;
+    }
+    
+    private void IntentarPlantar(Vector3Int cellPos, string tipo)
+    {
+        // Verificaciones de seguridad
+        if (!VerificarConfiguracion()) return;
 
         // A. Obtener el Tile del Tilemap de Piso/Suelo
         TileBase sueloTile = sueloTilemap.GetTile(cellPos);
-        Debug.Log("Tile encontrado en suelo: " + (sueloTile != null ? sueloTile.name : "NULL"));
-        
-        if (tileTierraCultivable != null)
-        {
-            Debug.Log("Tile esperado (cultivable): " + tileTierraCultivable.name);
-        }
-        else
-        {
-            Debug.LogWarning("⚠️ Tile Tierra Cultivable NO ASIGNADO - usa 'Auto-Configurar' del Inspector");
-        }
 
         // B. Validar si la tierra es cultivable
         bool puedesPlantar = false;
         
         if (tileTierraCultivable == null)
         {
-            // Si no hay tile asignado, intentar auto-configurar con el tile encontrado
-            Debug.LogWarning("🔧 Auto-asignando el tile encontrado...");
+            // Auto-configurar con el tile encontrado
             if (sueloTile != null && sueloTile is Tile)
             {
                 tileTierraCultivable = sueloTile as Tile;
-                Debug.Log("✅ Tile auto-asignado: " + tileTierraCultivable.name);
                 puedesPlantar = true;
             }
         }
-        else if (sueloTile != null && sueloTile.name == tileTierraCultivable.name)
+        else if (sueloTile != null && (sueloTile.name == tileTierraCultivable.name || sueloTile == tileTierraCultivable))
         {
-            // Coincidencia por nombre (para manejar instancias diferentes)
             puedesPlantar = true;
-            Debug.Log("✅ Tile válido por nombre: " + sueloTile.name);
-        }
-        else if (sueloTile == tileTierraCultivable)
-        {
-            // Coincidencia directa de referencia
-            puedesPlantar = true;
-            Debug.Log("✅ Tile válido por referencia");
         }
         else if (sueloTile != null)
         {
-            // **NUEVA FUNCIONALIDAD**: Auto-actualizar si encontramos un tile similar
-            Debug.LogWarning("🔄 Tile diferente detectado, intentando auto-actualizar...");
-            Debug.Log("  - Encontrado: '" + sueloTile.name + "'");
-            Debug.Log("  - Configurado: '" + tileTierraCultivable.name + "'");
-            
-            // Si los nombres son similares (contienen palabras clave similares), usar el encontrado
+            // Auto-actualizar si encontramos un tile similar
             if (sueloTile.name.Contains("Piskel") && tileTierraCultivable.name.Contains("Piskel"))
             {
-                Debug.LogWarning("🎯 Tiles similares detectados, actualizando configuración...");
                 tileTierraCultivable = sueloTile as Tile;
                 if (tileTierraCultivable != null)
                 {
                     puedesPlantar = true;
-                    Debug.Log("✅ Configuración actualizada a: " + tileTierraCultivable.name);
                 }
             }
         }
         
         if (!puedesPlantar)
         {
-            if (sueloTile == null)
+            if (mostrarDebugAnimaciones) // Usar un debug flag existente
             {
-                Debug.Log("❌ No hay tile en esta posición - haz clic en el piso pintado");
-            }
-            else
-            {
-                Debug.Log("❌ No se puede plantar aquí - Razones:");
-                Debug.Log("  - Suelo encontrado: " + sueloTile.name + " (Tipo: " + sueloTile.GetType().Name + ")");
-                if (tileTierraCultivable != null)
-                {
-                    Debug.Log("  - Suelo requerido: " + tileTierraCultivable.name + " (Tipo: " + tileTierraCultivable.GetType().Name + ")");
-                }
-                Debug.LogWarning("💡 SUGERENCIA: Usa 'Auto-Configurar - Detectar Tile del Suelo' en el Inspector");
+                Debug.LogError("❌ NO SE PUEDE PLANTAR AQUÍ");
             }
             return;
         }
@@ -277,478 +241,588 @@ public class CultivoManager : MonoBehaviour
         // C. Validar si la celda ya tiene un cultivo
         if (cultivosPlantados.ContainsKey(cellPos))
         {
-            Debug.Log("❌ Ya hay algo plantado aquí en celda: " + cellPos);
             CultivoData existente = cultivosPlantados[cellPos];
-            Debug.Log("  - Tipo existente: " + existente.tipoCultivo);
-            Debug.Log("  - Etapa actual: " + existente.etapaActual);
+            if (mostrarDebugAnimaciones)
+            {
+                Debug.LogError("❌ Ya hay algo plantado: " + existente.tipoCultivo + " etapa " + existente.etapaActual);
+            }
             return;
         }
 
-        // D. Verificar que el tilemap de cultivos no tenga nada
+        // D. Limpiar tile existente si hay inconsistencias
         TileBase cultivoExistente = cultivosTilemap.GetTile(cellPos);
         if (cultivoExistente != null)
         {
-            Debug.LogWarning("⚠️ ADVERTENCIA: Hay un tile en el tilemap de cultivos pero no en los datos!");
-            Debug.Log("  - Tile encontrado: " + cultivoExistente.name);
-            Debug.Log("  - Limpiando tile para plantar...");
             cultivosTilemap.SetTile(cellPos, null);
         }
 
         // E. ¡PLANTAR!
-        Debug.Log("✅ PLANTANDO en celda: " + cellPos);
-        
-        // 1. Crear el objeto de datos del cultivo
         CultivoData nuevoCultivo = new CultivoData
         {
             posicionCelda = cellPos,
             tipoCultivo = tipo,
-            etapaActual = 0, // Semilla
-            tiempoPlantado = Time.time // Registrar el tiempo actual
+            etapaActual = 0,
+            tiempoPlantado = Time.time
         };
 
-        Debug.Log("  - Datos del cultivo creados:");
-        Debug.Log("    * Posición: " + nuevoCultivo.posicionCelda);
-        Debug.Log("    * Tipo: " + nuevoCultivo.tipoCultivo);
-        Debug.Log("    * Etapa: " + nuevoCultivo.etapaActual);
-        Debug.Log("    * Tiempo plantado: " + nuevoCultivo.tiempoPlantado);
-
-        // 2. Guardar los datos en el diccionario
         cultivosPlantados.Add(cellPos, nuevoCultivo);
-        Debug.Log("  - Cultivo agregado al diccionario. Total cultivos: " + cultivosPlantados.Count);
 
-        // 3. Colocar el Tile de Semilla en el Tilemap de Cultivos
         if (tilesDeCrecimiento[0] != null)
         {
             cultivosTilemap.SetTile(cellPos, tilesDeCrecimiento[0]);
-            Debug.Log("  - Tile de semilla colocado: " + tilesDeCrecimiento[0].name);
             
-            // 🔧 SOLUCIÓN: Asegurar que el tilemap de cultivos esté encima del suelo
+            // Configurar collider
+            ConfigurarColliderCultivo(cellPos, true);
+            
+            // Asegurar sorting order
             TilemapRenderer cultivosRenderer = cultivosTilemap.GetComponent<TilemapRenderer>();
             TilemapRenderer sueloRenderer = sueloTilemap.GetComponent<TilemapRenderer>();
             
             if (cultivosRenderer != null && sueloRenderer != null)
             {
-                // Asegurar que los cultivos tengan un sorting order mayor
                 if (cultivosRenderer.sortingOrder <= sueloRenderer.sortingOrder)
                 {
                     cultivosRenderer.sortingOrder = sueloRenderer.sortingOrder + 1;
-                    Debug.LogWarning("🔧 Sorting Order ajustado:");
-                    Debug.Log("  - Suelo: " + sueloRenderer.sortingOrder);
-                    Debug.Log("  - Cultivos: " + cultivosRenderer.sortingOrder);
-                }
-                
-                // Verificar Sorting Layers también
-                if (cultivosRenderer.sortingLayerName != sueloRenderer.sortingLayerName)
-                {
-                    Debug.Log("📋 Sorting Layers:");
-                    Debug.Log("  - Suelo: " + sueloRenderer.sortingLayerName);
-                    Debug.Log("  - Cultivos: " + cultivosRenderer.sortingLayerName);
                 }
             }
             
-            // Verificar que se colocó correctamente
-            TileBase verificacion = cultivosTilemap.GetTile(cellPos);
-            if (verificacion != null)
+            if (mostrarDebugAnimaciones)
             {
-                Debug.Log("  - ✅ Verificación: Tile colocado correctamente: " + verificacion.name);
-                
-                // 🔧 Verificar posición Z del tilemap
-                Vector3 posSuelo = sueloTilemap.transform.position;
-                Vector3 posCultivos = cultivosTilemap.transform.position;
-                
-                Debug.Log("📍 Posiciones Z:");
-                Debug.Log("  - Suelo Z: " + posSuelo.z);
-                Debug.Log("  - Cultivos Z: " + posCultivos.z);
-                
-                // Si los cultivos están detrás, ajustar
-                if (posCultivos.z >= posSuelo.z)
-                {
-                    cultivosTilemap.transform.position = new Vector3(posCultivos.x, posCultivos.y, posSuelo.z - 0.1f);
-                    Debug.LogWarning("🔧 Posición Z ajustada para cultivos: " + (posSuelo.z - 0.1f));
-                }
-            }
-            else
-            {
-                Debug.LogError("  - ❌ ERROR: No se pudo colocar el tile!");
+                Debug.LogError("✅ PLANTACIÓN EXITOSA en " + cellPos);
             }
         }
-        else
-        {
-            Debug.LogError("❌ ERROR: tilesDeCrecimiento[0] es NULL!");
-        }
-        
-        Debug.Log("🎉 PLANTACIÓN COMPLETADA!");
     }
-    // ... (continúa con el paso 5)// ... (continuación de CultivoManager.cs)
     
     private void ManejarCrecimiento()
     {
-        // Solo mostrar debug cada 5 segundos para no saturar la consola
-        bool mostrarDebug = Time.time % 5f < 0.1f;
+        // Solo debug ocasional
+        bool mostrarDebug = Time.time % 10f < 0.1f && mostrarDebugAnimaciones;
         
         if (mostrarDebug && cultivosPlantados.Count > 0)
         {
-            Debug.Log("🌿 REVISANDO CRECIMIENTO - Cultivos plantados: " + cultivosPlantados.Count);
+            Debug.LogError("🌿 Cultivos plantados: " + cultivosPlantados.Count);
         }
         
-        // Crear una lista temporal para evitar errores al modificar el diccionario mientras iteramos
         List<Vector3Int> celdasAActualizar = new List<Vector3Int>(cultivosPlantados.Keys);
 
         foreach (Vector3Int cellPos in celdasAActualizar)
         {
             CultivoData data = cultivosPlantados[cellPos];
             float tiempoTranscurrido = Time.time - data.tiempoPlantado;
-            
-            if (mostrarDebug)
-            {
-                Debug.Log("  - Cultivo en " + cellPos + ":");
-                Debug.Log("    * Tipo: " + data.tipoCultivo);
-                Debug.Log("    * Etapa actual: " + data.etapaActual + "/9");
-                Debug.Log("    * Tiempo transcurrido: " + tiempoTranscurrido.ToString("F1") + "s");
-                Debug.Log("    * Tiempo por etapa: " + CultivoData.TIEMPO_POR_ETAPA + "s");
-            }
 
-            // Calcular en qué etapa debería estar basado en el tiempo
             int etapaObjetivo = Mathf.FloorToInt(tiempoTranscurrido / CultivoData.TIEMPO_POR_ETAPA);
-            etapaObjetivo = Mathf.Clamp(etapaObjetivo, 0, 9); // Máximo 9 (índice del último tile)
+            etapaObjetivo = Mathf.Clamp(etapaObjetivo, 0, 9);
             
-            // Si necesita avanzar etapas
             if (data.etapaActual < etapaObjetivo && data.etapaActual < 9)
             {
-                // Avanzar a la siguiente etapa
                 data.etapaActual++;
                 
-                // Verificar que tenemos el tile para esta etapa
                 if (data.etapaActual < tilesDeCrecimiento.Length && tilesDeCrecimiento[data.etapaActual] != null)
                 {
-                    // Cambiar el Tile en el Tilemap
                     cultivosTilemap.SetTile(cellPos, tilesDeCrecimiento[data.etapaActual]);
+                    ConfigurarColliderCultivo(cellPos, false); // Etapas de crecimiento sin collider
                     
-                    if (data.etapaActual == 9)
+                    if (mostrarDebug && data.etapaActual == 9)
                     {
-                        Debug.Log("🌾 Cultivo MADURO en " + cellPos + " (etapa " + data.etapaActual + "/9)");
+                        Debug.LogError("🌾 Cultivo MADURO en " + cellPos);
                     }
-                    else
-                    {
-                        Debug.Log("🌱➡️🌿 Cultivo en " + cellPos + " avanzó a etapa " + data.etapaActual + "/9");
-                    }
-                }
-                else
-                {
-                    Debug.LogError("❌ ERROR: No hay tile para la etapa " + data.etapaActual + "!");
                 }
             }
         }
     }
     
-    // Función de ejemplo para Cosechar (puedes llamarla desde una interacción del jugador)
     public void CosecharCultivo(Vector3Int cellPos)
     {
-        Debug.Log("🧺 INTENTAR COSECHAR en celda: " + cellPos);
-        
         if (cultivosPlantados.ContainsKey(cellPos))
         {
             CultivoData data = cultivosPlantados[cellPos];
             
-            Debug.Log("  - Cultivo encontrado:");
-            Debug.Log("    * Tipo: " + data.tipoCultivo);
-            Debug.Log("    * Etapa: " + data.etapaActual + "/9");
-            Debug.Log("    * Progreso: " + (data.ObtenerProgreso() * 100f).ToString("F1") + "%");
-            Debug.Log("    * ¿Está maduro? " + data.EstaMaduro());
-            
             if (data.EstaMaduro())
             {
-                // 1. Eliminar el Tile
-                cultivosTilemap.SetTile(cellPos, null); 
-                Debug.Log("  - Tile eliminado del tilemap");
+                // Lanzar zanahorias
+                if (prefabZanahoria != null)
+                {
+                    LanzarZanahorias(cellPos);
+                }
                 
-                // 2. Eliminar de los datos
-                cultivosPlantados.Remove(cellPos); 
-                Debug.Log("  - Datos eliminados del diccionario");
+                // Eliminar cultivo
+                cultivosTilemap.SetTile(cellPos, null);
+                cultivosPlantados.Remove(cellPos);
                 
-                // 3. ¡Dar recompensa al jugador!
-                int recompensa = 9 - data.etapaActual + 1; // Más recompensa si está más maduro
-                Debug.Log("✅ Cosechaste un cultivo de " + data.tipoCultivo + " en " + cellPos);
-                Debug.Log("🎉 ¡Recompensa obtenida! Puntos: " + recompensa + " (implementar RecompensaManager)");
+                if (mostrarDebugAnimaciones)
+                {
+                    Debug.LogError("✅ Cosechaste " + data.tipoCultivo);
+                }
             }
             else
             {
-                Debug.Log("❌ Este cultivo aún no está maduro. Etapa actual: " + data.etapaActual + "/9");
-                float tiempoRestante = data.TiempoRestanteParaMadurez(Time.time);
-                Debug.Log("  - Tiempo restante: " + tiempoRestante.ToString("F1") + " segundos");
-                Debug.Log("  - Progreso: " + (data.ObtenerProgreso() * 100f).ToString("F1") + "%");
+                if (mostrarDebugAnimaciones)
+                {
+                    float progreso = data.ObtenerProgreso() * 100f;
+                    Debug.LogError("❌ Cultivo no maduro. Progreso: " + progreso.ToString("F1") + "%");
+                }
             }
         }
-        else
+    }
+    
+    private void LanzarZanahorias(Vector3Int cellPos)
+    {
+        Vector3 posicionMundo = cultivosTilemap.CellToWorld(cellPos);
+        posicionMundo += new Vector3(cultivosTilemap.cellSize.x * 0.5f, cultivosTilemap.cellSize.y * 0.5f, 0);
+        
+        for (int i = 0; i < cantidadZanahoriasPorCosecha; i++)
         {
-            Debug.Log("❌ No hay ningún cultivo en esta celda: " + cellPos);
+            CrearZanahoria(posicionMundo, i);
+        }
+    }
+    
+    private void CrearZanahoria(Vector3 posicion, int indice)
+    {
+        GameObject nuevaZanahoria = Instantiate(prefabZanahoria, posicion, Quaternion.identity);
+        
+        // Configurar valor
+        Zanahoria scriptZanahoria = nuevaZanahoria.GetComponent<Zanahoria>();
+        if (scriptZanahoria != null)
+        {
+            scriptZanahoria.SetValor(valorZanahoria);
+        }
+        
+        // Configurar colliders
+        ConfigurarCollidersZanahoria(nuevaZanahoria);
+        
+        // Aplicar efecto de lanzamiento
+        if (efectoLanzamiento)
+        {
+            Rigidbody2D rb = nuevaZanahoria.GetComponent<Rigidbody2D>();
+            if (rb == null)
+            {
+                rb = nuevaZanahoria.AddComponent<Rigidbody2D>();
+                rb.gravityScale = 1f;
+                rb.linearDamping = 0.3f;
+            }
             
-            // Verificar si hay algo visualmente pero no en los datos
-            TileBase tileVisual = cultivosTilemap.GetTile(cellPos);
-            if (tileVisual != null)
-            {
-                Debug.LogWarning("⚠️ INCONSISTENCIA: Hay un tile visual (" + tileVisual.name + ") pero no datos!");
-            }
+            Vector2 direccion = new Vector2(Random.Range(-1f, 1f), 1f).normalized;
+            Vector2 fuerzaFinal = direccion * fuerzaLanzamiento + Vector2.up * alturaLanzamiento;
+            rb.AddForce(fuerzaFinal, ForceMode2D.Impulse);
+            rb.angularVelocity = Random.Range(-180f, 180f);
         }
     }
     
-    // 🔍 MÉTODO DE DEBUG MANUAL - Para probar desde el Inspector o llamar en código
-    [ContextMenu("Debug - Mostrar Estado Completo")]
-    public void DebugMostrarEstadoCompleto()
+    private void ConfigurarCollidersZanahoria(GameObject zanahoria)
     {
-        Debug.Log("🔍 === DEBUG CULTIVO MANAGER ===");
-        Debug.Log("📊 REFERENCIAS:");
-        Debug.Log("  - Camera: " + (mainCamera != null ? "✅" : "❌"));
-        Debug.Log("  - Suelo Tilemap: " + (sueloTilemap != null ? "✅ " + sueloTilemap.name : "❌"));
-        Debug.Log("  - Cultivos Tilemap: " + (cultivosTilemap != null ? "✅ " + cultivosTilemap.name : "❌"));
-        Debug.Log("  - Tile Cultivable: " + (tileTierraCultivable != null ? "✅ " + tileTierraCultivable.name : "❌"));
-        Debug.Log("  - Tiles Crecimiento: " + (tilesDeCrecimiento != null ? tilesDeCrecimiento.Length + " tiles" : "❌"));
+        CircleCollider2D[] collidersExistentes = zanahoria.GetComponents<CircleCollider2D>();
         
-        Debug.Log("🌱 CULTIVOS PLANTADOS: " + cultivosPlantados.Count);
-        if (cultivosPlantados.Count > 0)
+        CircleCollider2D triggerCollider = null;
+        CircleCollider2D physicsCollider = null;
+        
+        if (collidersExistentes.Length == 0)
         {
-            foreach (var kvp in cultivosPlantados)
-            {
-                CultivoData data = kvp.Value;
-                float tiempoTranscurrido = Time.time - data.tiempoPlantado;
-                Debug.Log("  - " + kvp.Key + ": " + data.tipoCultivo + " | Etapa: " + data.etapaActual + " | Tiempo: " + tiempoTranscurrido.ToString("F1") + "s");
-            }
+            triggerCollider = zanahoria.AddComponent<CircleCollider2D>();
+            physicsCollider = zanahoria.AddComponent<CircleCollider2D>();
         }
-        Debug.Log("=== FIN DEBUG ===");
-    }
-    
-    // 🛠️ MÉTODO PARA CONFIGURAR AUTOMÁTICAMENTE EL TILE CULTIVABLE
-    [ContextMenu("Auto-Configurar - Detectar Tile del Suelo")]
-    public void AutoConfigurarTileCultivable()
-    {
-        Debug.LogWarning("🔍 === AUTO-CONFIGURACIÓN INICIADA ===");
-        
-        if (sueloTilemap == null)
+        else if (collidersExistentes.Length == 1)
         {
-            Debug.LogError("❌ Asigna el Suelo Tilemap primero!");
-            return;
+            triggerCollider = collidersExistentes[0];
+            physicsCollider = zanahoria.AddComponent<CircleCollider2D>();
+        }
+        else
+        {
+            triggerCollider = collidersExistentes[0];
+            physicsCollider = collidersExistentes[1];
         }
         
-        // Buscar tiles en un área más amplia
-        TileBase tileEncontrado = null;
-        Vector3Int posicionEncontrada = Vector3Int.zero;
+        // Configurar como triggers para evitar daño
+        triggerCollider.isTrigger = true;
+        triggerCollider.radius = 0.3f;
+        physicsCollider.isTrigger = true;
+        physicsCollider.radius = 0.1f;
         
-        Debug.Log("🔍 Buscando tiles en el tilemap...");
-        
-        // Buscar en los límites del tilemap
-        BoundsInt bounds = sueloTilemap.cellBounds;
-        Debug.Log("📏 Límites del tilemap: " + bounds);
-        
-        for (int x = bounds.xMin; x < bounds.xMax && tileEncontrado == null; x++)
+        // Configurar layer seguro
+        zanahoria.layer = LayerMask.NameToLayer("Items");
+        if (zanahoria.layer == -1)
         {
-            for (int y = bounds.yMin; y < bounds.yMax && tileEncontrado == null; y++)
+            zanahoria.layer = 0; // Default layer
+        }
+        
+        // Ignorar colisiones con piso
+        Collider2D[] collidersZanahoria = zanahoria.GetComponents<Collider2D>();
+        foreach (var colliderZ in collidersZanahoria)
+        {
+            TilemapCollider2D[] collidersPiso = FindObjectsByType<TilemapCollider2D>(FindObjectsSortMode.None);
+            foreach (var colliderPiso in collidersPiso)
             {
-                Vector3Int pos = new Vector3Int(x, y, 0);
-                TileBase tile = sueloTilemap.GetTile(pos);
-                
-                if (tile != null)
+                if (colliderPiso.gameObject.name.ToLower().Contains("piso") || 
+                    colliderPiso.gameObject.name.ToLower().Contains("suelo"))
                 {
-                    tileEncontrado = tile;
-                    posicionEncontrada = pos;
-                    Debug.Log("✅ Primer tile encontrado: '" + tile.name + "' en posición " + pos);
-                    break;
+                    Physics2D.IgnoreCollision(colliderZ, colliderPiso, true);
                 }
             }
         }
+    }
+    
+    private void ConfigurarColliderCultivo(Vector3Int cellPos, bool tieneCollider)
+    {
+        TilemapCollider2D tilemapCollider = cultivosTilemap.GetComponent<TilemapCollider2D>();
         
-        if (tileEncontrado != null)
+        if (tilemapCollider == null && tieneCollider)
         {
-            // Auto-asignar el tile encontrado
-            if (tileEncontrado is Tile)
+            tilemapCollider = cultivosTilemap.gameObject.AddComponent<TilemapCollider2D>();
+            tilemapCollider.isTrigger = false;
+        }
+        
+        if (tilemapCollider != null)
+        {
+            tilemapCollider.enabled = true;
+        }
+    }
+    
+    private void ManejarResaltadoCultivos()
+    {
+        if (mainCamera == null || cultivosTilemap == null) return;
+        
+        Vector3 mouseWorldPos = mainCamera.ScreenToWorldPoint(Input.mousePosition);
+        Vector3Int cellPos = cultivosTilemap.WorldToCell(mouseWorldPos);
+        
+        bool hayCultivoEnCelda = cultivosPlantados.ContainsKey(cellPos);
+        
+        if (hayCultivoEnCelda)
+        {
+            if (cellPos != celdaResaltada)
             {
-                tileTierraCultivable = tileEncontrado as Tile;
-                
-                Debug.LogWarning("🎉 CONFIGURACIÓN AUTOMÁTICA EXITOSA!");
-                Debug.Log("  - Tile Cultivable configurado: " + tileTierraCultivable.name);
-                Debug.Log("  - Encontrado en posición: " + posicionEncontrada);
-                Debug.Log("  - ¡Ahora puedes plantar en tiles de este tipo!");
-                
-                // Probar plantación inmediatamente
-                Debug.Log("🌱 Probando plantación automática...");
-                IntentarPlantar(posicionEncontrada, "AutoTest");
+                QuitarResaltado();
+                AplicarResaltado(cellPos);
+            }
+            
+            if (hayResaltado)
+            {
+                ActualizarParpadeo();
+            }
+        }
+        else
+        {
+            QuitarResaltado();
+        }
+    }
+    
+    private void AplicarResaltado(Vector3Int cellPos)
+    {
+        if (cultivosTilemap == null) return;
+        
+        TileBase tileActual = cultivosTilemap.GetTile(cellPos);
+        if (tileActual == null) return;
+        
+        celdaResaltada = cellPos;
+        tileOriginal = tileActual;
+        hayResaltado = true;
+        tiempoParpadeo = 0f;
+        
+        if (usarOverlay)
+        {
+            CrearOverlayResaltado(cellPos);
+        }
+        else
+        {
+            colorOriginal = cultivosTilemap.GetColor(cellPos);
+        }
+    }
+    
+    private void QuitarResaltado()
+    {
+        if (!hayResaltado) return;
+        
+        if (usarOverlay)
+        {
+            DestruirOverlayResaltado();
+        }
+        else
+        {
+            if (cultivosTilemap != null)
+            {
+                cultivosTilemap.SetColor(celdaResaltada, colorOriginal);
+            }
+        }
+        
+        hayResaltado = false;
+        celdaResaltada = Vector3Int.zero;
+    }
+    
+    private void ActualizarParpadeo()
+    {
+        if (!hayResaltado) return;
+        
+        tiempoParpadeo += Time.deltaTime * velocidadParpadeo;
+        float intensidad = (Mathf.Sin(tiempoParpadeo) + 1f) / 2f;
+        
+        if (usarOverlay)
+        {
+            ActualizarOverlayParpadeo(intensidad);
+        }
+        else
+        {
+            if (cultivosTilemap == null) return;
+            
+            Color colorFinal = intensidad > 0.5f ? 
+                colorOriginal + colorResaltado : 
+                Color.Lerp(colorOriginal, colorOriginal + colorResaltado * 0.3f, intensidad * 2f);
+            
+            cultivosTilemap.SetColor(celdaResaltada, colorFinal);
+        }
+    }
+    
+    private void CrearOverlayResaltado(Vector3Int cellPos)
+    {
+        DestruirOverlayResaltado();
+        
+        overlayResaltado = new GameObject("OverlayResaltado");
+        overlayResaltado.transform.SetParent(cultivosTilemap.transform);
+        
+        Vector3 worldPos = cultivosTilemap.CellToWorld(cellPos);
+        Vector3 cellSize = cultivosTilemap.cellSize;
+        
+        worldPos.x += cellSize.x * 0.5f;
+        worldPos.y += cellSize.y * 0.5f;
+        worldPos.z = worldPos.z - 0.1f;
+        
+        overlayResaltado.transform.position = worldPos;
+        
+        SpriteRenderer sr = overlayResaltado.AddComponent<SpriteRenderer>();
+        
+        int pixelWidth = Mathf.RoundToInt(cellSize.x * 100);
+        int pixelHeight = Mathf.RoundToInt(cellSize.y * 100);
+        
+        Texture2D texture = new Texture2D(pixelWidth, pixelHeight);
+        
+        Color[] pixels = new Color[pixelWidth * pixelHeight];
+        for (int i = 0; i < pixels.Length; i++)
+        {
+            pixels[i] = Color.white;
+        }
+        texture.SetPixels(pixels);
+        texture.Apply();
+        
+        Sprite sprite = Sprite.Create(texture, new Rect(0, 0, pixelWidth, pixelHeight), Vector2.one * 0.5f, 100f);
+        sr.sprite = sprite;
+        sr.color = colorResaltado;
+        
+        TilemapRenderer tilemapRenderer = cultivosTilemap.GetComponent<TilemapRenderer>();
+        if (tilemapRenderer != null)
+        {
+            sr.sortingLayerName = tilemapRenderer.sortingLayerName;
+            sr.sortingOrder = tilemapRenderer.sortingOrder + 1;
+        }
+    }
+    
+    private void ActualizarOverlayParpadeo(float intensidad)
+    {
+        if (overlayResaltado == null) return;
+        
+        SpriteRenderer sr = overlayResaltado.GetComponent<SpriteRenderer>();
+        if (sr != null)
+        {
+            Color color = colorResaltado;
+            color.a = 0.2f + (intensidad * 0.6f);
+            sr.color = color;
+            overlayResaltado.transform.localScale = Vector3.one;
+        }
+    }
+    
+    private void DestruirOverlayResaltado()
+    {
+        if (overlayResaltado != null)
+        {
+            if (Application.isPlaying)
+            {
+                Destroy(overlayResaltado);
             }
             else
             {
-                Debug.LogError("❌ El tile encontrado no es de tipo 'Tile', es: " + tileEncontrado.GetType().Name);
-                Debug.LogWarning("   El tile '" + tileEncontrado.name + "' no es compatible");
-                Debug.LogWarning("   Intenta usar un tile diferente o convertirlo a tipo 'Tile'");
+                DestroyImmediate(overlayResaltado);
             }
+            overlayResaltado = null;
         }
-        else
-        {
-            Debug.LogError("❌ No se encontraron tiles en el tilemap!");
-            Debug.LogError("   Asegúrate de haber pintado tiles con el Tile Palette");
-            Debug.LogError("   O verifica que el Suelo Tilemap sea el correcto");
-        }
-        
-        Debug.LogWarning("🔍 === AUTO-CONFIGURACIÓN TERMINADA ===");
     }
     
-    // 🗺️ MÉTODO PARA MOSTRAR MAPA DE TILES
-    [ContextMenu("Debug - Mostrar Mapa de Tiles")]
-    public void MostrarMapaTiles()
+    private void InicializarSistemaResaltado()
     {
-        Debug.LogWarning("🗺️ === MAPA DE TILES ===");
+        hayResaltado = false;
+        celdaResaltada = Vector3Int.zero;
+        tiempoParpadeo = 0f;
+    }
+    
+    private void InicializarSistemaAnimaciones()
+    {
+        GameObject jugadorObj = GameObject.FindWithTag("Player");
         
-        if (sueloTilemap == null)
+        if (jugadorObj == null)
         {
-            Debug.LogError("❌ Suelo Tilemap no asignado!");
-            return;
-        }
-        
-        // Encontrar límites del tilemap
-        BoundsInt bounds = sueloTilemap.cellBounds;
-        Debug.Log("🌍 Límites del tilemap: " + bounds);
-        
-        int tilesEncontrados = 0;
-        
-        // Recorrer solo el área con tiles
-        for (int x = bounds.xMin; x < bounds.xMax; x++)
-        {
-            for (int y = bounds.yMin; y < bounds.yMax; y++)
+            MovimientoJugador movScript = FindObjectOfType<MovimientoJugador>();
+            if (movScript != null)
             {
-                Vector3Int pos = new Vector3Int(x, y, 0);
-                TileBase tile = sueloTilemap.GetTile(pos);
-                
-                if (tile != null)
-                {
-                    tilesEncontrados++;
-                    if (tilesEncontrados <= 10) // Solo mostrar los primeros 10
-                    {
-                        Vector3 worldPos = sueloTilemap.GetCellCenterWorld(pos);
-                        Debug.Log("📍 Tile #" + tilesEncontrados + ": '" + tile.name + "' en celda " + pos + " (mundo: " + worldPos + ")");
-                    }
-                }
+                jugadorObj = movScript.gameObject;
             }
         }
         
-        Debug.Log("📊 Total de tiles encontrados: " + tilesEncontrados);
-        
-        if (tilesEncontrados == 0)
+        if (jugadorObj != null)
         {
-            Debug.LogError("❌ No se encontraron tiles! Verifica que:");
-            Debug.LogError("  1. Hayas pintado tiles con Tile Palette");
-            Debug.LogError("  2. El Suelo Tilemap sea el correcto");
-            Debug.LogError("  3. Los tiles estén en el layer correcto");
-        }
-        else
-        {
-            Debug.LogWarning("💡 Haz clic derecho cerca de las posiciones mostradas arriba");
-        }
-        
-        Debug.LogWarning("🗺️ === FIN MAPA ===");
-    }
-    
-    // 🔧 MÉTODO PARA CONFIGURAR ORDENAMIENTO DE TILEMAPS
-    [ContextMenu("Configurar - Ordenamiento de Tilemaps")]
-    public void ConfigurarOrdenamientoTilemaps()
-    {
-        Debug.LogWarning("🔧 === CONFIGURANDO ORDENAMIENTO ===");
-        
-        if (sueloTilemap == null || cultivosTilemap == null)
-        {
-            Debug.LogError("❌ Asigna ambos tilemaps primero!");
-            return;
-        }
-        
-        TilemapRenderer sueloRenderer = sueloTilemap.GetComponent<TilemapRenderer>();
-        TilemapRenderer cultivosRenderer = cultivosTilemap.GetComponent<TilemapRenderer>();
-        
-        if (sueloRenderer == null || cultivosRenderer == null)
-        {
-            Debug.LogError("❌ Falta TilemapRenderer en uno de los tilemaps!");
-            return;
-        }
-        
-        Debug.Log("📋 Estado actual:");
-        Debug.Log("  - Suelo Sorting Layer: " + sueloRenderer.sortingLayerName);
-        Debug.Log("  - Suelo Sorting Order: " + sueloRenderer.sortingOrder);
-        Debug.Log("  - Cultivos Sorting Layer: " + cultivosRenderer.sortingLayerName);
-        Debug.Log("  - Cultivos Sorting Order: " + cultivosRenderer.sortingOrder);
-        
-        // Configurar sorting layers iguales
-        cultivosRenderer.sortingLayerName = sueloRenderer.sortingLayerName;
-        
-        // Asegurar que cultivos estén encima
-        cultivosRenderer.sortingOrder = sueloRenderer.sortingOrder + 1;
-        
-        // Configurar posiciones Z correctas
-        Vector3 posSuelo = sueloTilemap.transform.position;
-        Vector3 posCultivos = cultivosTilemap.transform.position;
-        
-        // Cultivos más adelante (Z menor para 2D)
-        cultivosTilemap.transform.position = new Vector3(posCultivos.x, posCultivos.y, posSuelo.z - 0.1f);
-        
-        Debug.LogWarning("✅ Configuración aplicada:");
-        Debug.Log("  - Suelo Sorting Order: " + sueloRenderer.sortingOrder);
-        Debug.Log("  - Cultivos Sorting Order: " + cultivosRenderer.sortingOrder);
-        Debug.Log("  - Suelo Z: " + sueloTilemap.transform.position.z);
-        Debug.Log("  - Cultivos Z: " + cultivosTilemap.transform.position.z);
-        
-        Debug.LogWarning("🎉 ¡Los cultivos ahora deberían aparecer encima del suelo!");
-        Debug.LogWarning("🔧 === CONFIGURACIÓN TERMINADA ===");
-    }
-    
-    // 🔍 MÉTODO DE DEBUG SIMPLIFICADO - Para ver qué falla
-    [ContextMenu("Debug - Test Completo")]
-    public void TestCompleto()
-    {
-        Debug.Log("🔍 === TEST COMPLETO INICIADO ===");
-        
-        // 1. Verificar referencias básicas
-        if (sueloTilemap == null) { Debug.LogError("❌ sueloTilemap es NULL!"); return; }
-        if (cultivosTilemap == null) { Debug.LogError("❌ cultivosTilemap es NULL!"); return; }
-        if (tileTierraCultivable == null) { Debug.LogError("❌ tileTierraCultivable es NULL!"); return; }
-        if (tilesDeCrecimiento == null || tilesDeCrecimiento.Length == 0) { Debug.LogError("❌ tilesDeCrecimiento vacío!"); return; }
-        
-        Debug.Log("✅ Todas las referencias están asignadas");
-        
-        // 2. BUSCAR DONDE SÍ HAY TILES CULTIVABLES
-        Debug.LogWarning("🔍 Buscando tiles cultivables en el mundo...");
-        bool encontradoTileCultivable = false;
-        
-        // Buscar en un área de 50x50 alrededor del origen
-        for (int x = -25; x <= 25; x++)
-        {
-            for (int y = -25; y <= 25; y++)
+            jugadorScript = jugadorObj.GetComponent<MovimientoJugador>();
+            jugadorAnimator = jugadorObj.GetComponent<Animator>();
+            
+            if (jugadorAnimator == null)
             {
-                Vector3Int pos = new Vector3Int(x, y, 0);
-                TileBase tile = sueloTilemap.GetTile(pos);
-                
-                if (tile == tileTierraCultivable)
-                {
-                    Debug.Log("✅ ENCONTRADO TILE CULTIVABLE en posición: " + pos);
-                    encontradoTileCultivable = true;
-                    
-                    // Probar plantar aquí
-                    Debug.Log("🌱 Intentando plantar en esta posición...");
-                    IntentarPlantar(pos, "TestZanahoria");
-                    break;
-                }
-                else if (tile != null)
-                {
-                    // Solo mostrar los primeros 5 tiles diferentes encontrados
-                    if (x % 10 == 0 && y % 10 == 0)
-                    {
-                        Debug.Log("Tile diferente en " + pos + ": " + tile.name);
-                    }
-                }
+                jugadorAnimator = jugadorObj.GetComponentInChildren<Animator>();
             }
-            if (encontradoTileCultivable) break;
+            
+            if (mostrarDebugAnimaciones)
+            {
+                Debug.LogError("🎬 SISTEMA DE ANIMACIONES:");
+                Debug.LogError("  - Jugador: " + (jugadorScript != null ? "✅" : "❌"));
+                Debug.LogError("  - Animator: " + (jugadorAnimator != null ? "✅" : "❌"));
+            }
         }
-        
-        if (!encontradoTileCultivable)
+    }
+    
+    private void IniciarAnimacionCultivo(System.Action callbackDespuesAnimacion)
+    {
+        if (estaAnimandoCultivo)
         {
-            Debug.LogError("❌ NO SE ENCONTRÓ NINGÚN TILE CULTIVABLE!");
-            Debug.LogError("Necesitas colocar tiles '" + tileTierraCultivable.name + "' en el tilemap de suelo");
-            Debug.LogError("O cambiar la referencia 'Tile Tierra Cultivable' por un tile que SÍ exista");
+            callbackDespuesAnimacion?.Invoke();
+            return;
         }
         
-        Debug.Log("🔍 === TEST COMPLETO TERMINADO ===");
+        if (jugadorAnimator == null)
+        {
+            callbackDespuesAnimacion?.Invoke();
+            return;
+        }
+        
+        // Verificar que el trigger existe
+        bool tieneTrigger = false;
+        foreach (AnimatorControllerParameter param in jugadorAnimator.parameters)
+        {
+            if (param.name == nombreAnimacionCultivando && param.type == AnimatorControllerParameterType.Trigger)
+            {
+                tieneTrigger = true;
+                break;
+            }
+        }
+        
+        if (!tieneTrigger)
+        {
+            callbackDespuesAnimacion?.Invoke();
+            return;
+        }
+        
+        estaAnimandoCultivo = true;
+        
+        if (jugadorScript != null)
+        {
+            BloquearMovimientoJugador(true);
+        }
+        
+        try
+        {
+            jugadorAnimator.SetTrigger(nombreAnimacionCultivando);
+        }
+        catch (System.Exception e)
+        {
+            Debug.LogError("❌ Error activando trigger: " + e.Message);
+            estaAnimandoCultivo = false;
+            BloquearMovimientoJugador(false);
+            callbackDespuesAnimacion?.Invoke();
+            return;
+        }
+        
+        StartCoroutine(TerminarAnimacionCultivo(callbackDespuesAnimacion));
+    }
+    
+    private System.Collections.IEnumerator TerminarAnimacionCultivo(System.Action callback)
+    {
+        yield return new WaitForSeconds(duracionAnimacionCultivando);
+        
+        estaAnimandoCultivo = false;
+        
+        if (jugadorScript != null)
+        {
+            BloquearMovimientoJugador(false);
+        }
+        
+        callback?.Invoke();
+    }
+    
+    private void BloquearMovimientoJugador(bool bloquear)
+    {
+        if (jugadorScript == null) return;
+        
+        Rigidbody2D jugadorRb = jugadorScript.GetComponent<Rigidbody2D>();
+        
+        if (bloquear)
+        {
+            if (jugadorRb != null)
+            {
+                jugadorRb.linearVelocity = new Vector2(0, jugadorRb.linearVelocity.y);
+            }
+        }
+    }
+    
+    // Métodos públicos para persistencia
+    public Dictionary<Vector3Int, CultivoData> ObtenerTodosCultivos()
+    {
+        return new Dictionary<Vector3Int, CultivoData>(cultivosPlantados);
+    }
+    
+    public void RestaurarCultivo(Vector3Int posicion, string tipo, int etapa, float tiempoPlantado)
+    {
+        if (cultivosTilemap == null || tilesDeCrecimiento == null || tilesDeCrecimiento.Length <= etapa)
+        {
+            return;
+        }
+        
+        CultivoData cultivoRestaurado = new CultivoData
+        {
+            posicionCelda = posicion,
+            tipoCultivo = tipo,
+            etapaActual = etapa,
+            tiempoPlantado = tiempoPlantado
+        };
+        
+        cultivosPlantados[posicion] = cultivoRestaurado;
+        
+        if (etapa < tilesDeCrecimiento.Length && tilesDeCrecimiento[etapa] != null)
+        {
+            cultivosTilemap.SetTile(posicion, tilesDeCrecimiento[etapa]);
+            ConfigurarColliderCultivo(posicion, etapa == 0);
+        }
+    }
+    
+    public void LimpiarTodosLosCultivos()
+    {
+        foreach (var posicion in cultivosPlantados.Keys)
+        {
+            cultivosTilemap.SetTile(posicion, null);
+        }
+        cultivosPlantados.Clear();
+    }
+    
+    // Métodos de contexto para testing
+    [ContextMenu("🌱 Test - Plantar en (0,0)")]
+    public void TestPlantar()
+    {
+        IntentarPlantar(Vector3Int.zero, "Zanahoria");
+    }
+    
+    [ContextMenu("🧹 Limpiar Cultivos")]
+    public void TestLimpiar()
+    {
+        LimpiarTodosLosCultivos();
+    }
+    
+    [ContextMenu("📊 Mostrar Estado")]
+    public void MostrarEstado()
+    {
+        Debug.LogError("📊 ESTADO DEL CULTIVO MANAGER:");
+        Debug.LogError($"  - Cultivos plantados: {cultivosPlantados.Count}");
+        Debug.LogError($"  - Configuración válida: {VerificarConfiguracion()}");
+        Debug.LogError($"  - Animaciones activas: {activarAnimaciones}");
+        Debug.LogError($"  - Resaltado activo: {activarResaltado}");
     }
 }

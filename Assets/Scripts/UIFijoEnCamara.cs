@@ -2,23 +2,64 @@ using UnityEngine;
 
 public class UIFijoEnCamara : MonoBehaviour
 {
-    [SerializeField] private Vector3 offsetPantalla = new Vector3(50, 50, 0); // Posición en pantalla
+    [Header("📷 Configuración")]
+    [SerializeField] private Camera camaraObjetivo;
+    [SerializeField] private bool seguirCamara = true;
+    [SerializeField] private Vector3 offsetPosicion = Vector3.zero;
+    [SerializeField] private bool mantenerEscala = true;
+    [SerializeField] private bool mostrarDebug = false;
     
-    private Camera cam;
+    private Canvas canvas;
     
     void Start()
     {
-        cam = Camera.main;
+        // Buscar cámara si no está asignada
+        if (camaraObjetivo == null)
+        {
+            camaraObjetivo = Camera.main;
+            if (camaraObjetivo == null)
+            {
+                camaraObjetivo = FindObjectOfType<Camera>();
+            }
+        }
+        
+        // Configurar Canvas
+        canvas = GetComponent<Canvas>();
+        if (canvas == null)
+        {
+            canvas = gameObject.AddComponent<Canvas>();
+        }
+        
+        // Configurar para seguir la cámara
+        if (seguirCamara && camaraObjetivo != null)
+        {
+            canvas.renderMode = RenderMode.ScreenSpaceCamera;
+            canvas.worldCamera = camaraObjetivo;
+        }
+        
+        if (mostrarDebug)
+        {
+            Debug.LogError("🎨 UI FIJO EN CÁMARA CONFIGURADO");
+        }
     }
     
-    void Update()
+    void LateUpdate()
     {
-        if (cam != null)
+        if (seguirCamara && camaraObjetivo != null)
         {
-            // Convertir posición de pantalla a mundo
-            Vector3 posicionPantalla = new Vector3(offsetPantalla.x, Screen.height - offsetPantalla.y, offsetPantalla.z);
-            Vector3 posicionMundo = cam.ScreenToWorldPoint(posicionPantalla);
-            transform.position = posicionMundo;
+            // Mantener posición relativa a la cámara
+            transform.position = camaraObjetivo.transform.position + offsetPosicion;
+            
+            // Mantener escala original si está activado
+            if (mantenerEscala)
+            {
+                transform.localScale = Vector3.one;
+            }
         }
+    }
+    
+    public void ConfigurarOffset(Vector3 nuevoOffset)
+    {
+        offsetPosicion = nuevoOffset;
     }
 }
