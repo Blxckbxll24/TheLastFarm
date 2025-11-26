@@ -4,311 +4,145 @@ using UnityEngine.SceneManagement;
 using TMPro;
 
 /// <summary>
-/// Sistema de transición de escena con ventana de confirmación
-/// Agrega este script al GameObject con Collider2D que representa la salida nocturna
+/// Sistema de transición de escena con ventana de confirmación + texto de interacción
 /// </summary>
 public class SalidaNoche : MonoBehaviour
 {
-    [Header("🌙 CONFIGURACIÓN DE ESCENA")]
-    [SerializeField] private string escenaDestino = "Escena2"; // Escena a la que ir
-    [SerializeField] private KeyCode teclaInteraccion = KeyCode.E; // Tecla para interactuar
-    [SerializeField] private bool mostrarDebug = true; // Debug
-    
-    [Header("📱 CONFIGURACIÓN DE UI")]
-    [SerializeField] private Canvas canvasConfirmacion; // Canvas para la ventana
-    [SerializeField] private GameObject panelConfirmacion; // Panel de confirmación
-    [SerializeField] private Button botonIr; // Botón para ir a la escena
-    [SerializeField] private Button botonQuedarse; // Botón para cancelar
-    [SerializeField] private TextMeshProUGUI textoTitulo; // Título de la ventana
-    [SerializeField] private TextMeshProUGUI textoDescripcion; // Descripción
-    [SerializeField] private TextMeshProUGUI textoInteraccion; // Texto de instrucción
-    [SerializeField] private bool crearUIAutomaticamente = true; // Crear UI si no existe
-    
-    [Header("🎨 PERSONALIZACIÓN")]
-    [SerializeField] private string tituloVentana = "🌙 TRANSICIÓN NOCTURNA";
+    [Header("CONFIGURACIÓN DE ESCENA")]
+    [SerializeField] private string escenaDestino = "Escena2";
+    [SerializeField] private KeyCode teclaInteraccion = KeyCode.E;
+    [SerializeField] private bool mostrarDebug = true;
+
+    [Header("CONFIGURACIÓN DE UI")]
+    [SerializeField] private Canvas canvasConfirmacion;
+    [SerializeField] private GameObject panelConfirmacion;
+    [SerializeField] private Button botonIr;
+    [SerializeField] private Button botonQuedarse;
+    [SerializeField] private TextMeshProUGUI textoTitulo;
+    [SerializeField] private TextMeshProUGUI textoDescripcion;
+    [SerializeField] private TextMeshProUGUI textoInteraccion; // Puedes dejar vacío en el Inspector
+    [SerializeField] private bool crearUIAutomaticamente = true;
+
+    [Header("PERSONALIZACIÓN")]
+    [SerializeField] private string tituloVentana = "TRANSICIÓN NOCTURNA";
     [SerializeField] private string descripcionVentana = "¿Estás seguro de que quieres ir a la zona nocturna?";
-    [SerializeField] private string textoBotonIr = "🌙 IR";
-    [SerializeField] private string textoBotonQuedarse = "❌ CANCELAR";
-    
-    // Variables de estado
+    [SerializeField] private string textoBotonIr = "IR";
+    [SerializeField] private string textoBotonQuedarse = "CANCELAR";
+
     private bool jugadorEnArea = false;
     private bool ventanaAbierta = false;
     private MovimientoJugador jugador;
-    
+
     void Start()
     {
-        if (mostrarDebug)
+        if (mostrarDebug) Debug.Log("SALIDA NOCTURNA INICIADA");
+
+        // Asegurar collider trigger
+        Collider2D col = GetComponent<Collider2D>();
+        if (col == null)
         {
-            Debug.LogError("🌙 SALIDA NOCTURNA INICIADA");
-        }
-        
-        // Verificar que tenemos un collider para detección
-        Collider2D collider = GetComponent<Collider2D>();
-        if (collider == null)
-        {
-            Debug.LogError("❌ SalidaNoche necesita un Collider2D marcado como trigger!");
+            Debug.LogError("Falta Collider2D en SalidaNoche!");
             return;
         }
-        
-        if (!collider.isTrigger)
-        {
-            collider.isTrigger = true;
-            Debug.LogError("🔧 Collider configurado como trigger automáticamente");
-        }
-        
-        // Crear UI si es necesario
+        if (!col.isTrigger) col.isTrigger = true;
+
+        // Crear UI completa si no existe
         if (crearUIAutomaticamente && canvasConfirmacion == null)
-        {
             CrearUICompleta();
-        }
-        
-        // Configurar UI existente
+
         ConfigurarUI();
-        
-        // Asegurar que la ventana esté oculta al inicio
         OcultarVentana();
-        
-        // 🔧 CREAR TEXTO DE INTERACCIÓN SI NO EXISTE
-        if (textoInteraccion == null)
-        {
-            CrearTextoInteraccion();
-        }
+
+        // FIX 1: Asegurar que el texto de interacción exista siempre
+        AsegurarTextoInteraccion();
     }
-    
+
     void Update()
     {
-        // Detectar si el jugador presiona E para interactuar
         if (jugadorEnArea && Input.GetKeyDown(teclaInteraccion))
         {
             if (!ventanaAbierta)
-            {
                 MostrarVentanaConfirmacion();
-            }
             else
-            {
                 CerrarVentana();
-            }
         }
-        
-        // Permitir cerrar con Escape
+
         if (ventanaAbierta && Input.GetKeyDown(KeyCode.Escape))
-        {
             CerrarVentana();
-        }
     }
-    
-    // 🔧 NUEVO: Crear texto de interacción si no existe
+
+    // FIX 1: Crea el texto si no existe o está destruido (funciona entre escenas)
+    private void AsegurarTextoInteraccion()
+    {
+        if (textoInteraccion != null && textoInteraccion.gameObject != null)
+            return;
+
+        CrearTextoInteraccion();
+    }
+
     private void CrearTextoInteraccion()
     {
-        // Buscar un canvas en la escena
         Canvas canvasEscena = FindObjectOfType<Canvas>();
-        
         if (canvasEscena == null)
         {
-            // Crear canvas simple para el texto
             GameObject canvasObj = new GameObject("Canvas_TextoInteraccion");
             canvasEscena = canvasObj.AddComponent<Canvas>();
             canvasEscena.renderMode = RenderMode.ScreenSpaceOverlay;
             canvasEscena.sortingOrder = 100;
-            
             canvasObj.AddComponent<CanvasScaler>();
             canvasObj.AddComponent<GraphicRaycaster>();
         }
-        
-        // Crear el texto de interacción
+
         GameObject textoObj = new GameObject("Texto_Interaccion_SalidaNoche");
         textoObj.transform.SetParent(canvasEscena.transform, false);
-        
+
         textoInteraccion = textoObj.AddComponent<TextMeshProUGUI>();
         textoInteraccion.text = $"Presiona {teclaInteraccion} para ir a {escenaDestino}";
-        textoInteraccion.fontSize = 24;
+        textoInteraccion.fontSize = 28;
         textoInteraccion.color = Color.yellow;
         textoInteraccion.fontStyle = FontStyles.Bold;
         textoInteraccion.alignment = TextAlignmentOptions.Center;
-        
-        // Configurar posición (centro-abajo de la pantalla)
-        RectTransform rectTexto = textoObj.GetComponent<RectTransform>();
-        rectTexto.sizeDelta = new Vector2(600f, 50f);
-        rectTexto.anchorMin = new Vector2(0.5f, 0.2f);
-        rectTexto.anchorMax = new Vector2(0.5f, 0.2f);
-        rectTexto.pivot = new Vector2(0.5f, 0.5f);
-        rectTexto.anchoredPosition = Vector2.zero;
-        
-        // Empezar oculto
+
+        RectTransform rect = textoObj.GetComponent<RectTransform>();
+        rect.anchorMin = new Vector2(0.5f, 0.15f);
+        rect.anchorMax = new Vector2(0.5f, 0.15f);
+        rect.pivot = new Vector2(0.5f, 0.5f);
+        rect.sizeDelta = new Vector2(700f, 60f);
+        rect.anchoredPosition = Vector2.zero;
+
         textoInteraccion.gameObject.SetActive(false);
-        
-        if (mostrarDebug)
-        {
-            Debug.LogError("🔧 TEXTO DE INTERACCIÓN CREADO AUTOMÁTICAMENTE");
-        }
+
+        if (mostrarDebug) Debug.Log("TEXTO DE INTERACCIÓN CREADO");
     }
-    
-    private void CrearUICompleta()
+
+    private void MostrarTextoInteraccion()
     {
-        if (mostrarDebug)
-        {
-            Debug.LogError("🎨 CREANDO UI COMPLETA DE SALIDA NOCTURNA");
-        }
-        
-        // Crear Canvas
-        GameObject canvasObj = new GameObject("Canvas_SalidaNoche");
-        canvasConfirmacion = canvasObj.AddComponent<Canvas>();
-        canvasConfirmacion.renderMode = RenderMode.ScreenSpaceOverlay;
-        canvasConfirmacion.sortingOrder = 999; // Muy alto
-        
-        CanvasScaler scaler = canvasObj.AddComponent<CanvasScaler>();
-        scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-        scaler.referenceResolution = new Vector2(1920f, 1080f);
-        
-        canvasObj.AddComponent<GraphicRaycaster>();
-        
-        // Crear fondo
-        GameObject fondo = new GameObject("Fondo");
-        fondo.transform.SetParent(canvasConfirmacion.transform, false);
-        
-        Image imagenFondo = fondo.AddComponent<Image>();
-        imagenFondo.color = new Color(0f, 0f, 0f, 0.8f);
-        
-        RectTransform rectFondo = fondo.GetComponent<RectTransform>();
-        rectFondo.anchorMin = Vector2.zero;
-        rectFondo.anchorMax = Vector2.one;
-        rectFondo.offsetMin = Vector2.zero;
-        rectFondo.offsetMax = Vector2.zero;
-        
-        // Crear panel central
-        panelConfirmacion = new GameObject("Panel_Confirmacion");
-        panelConfirmacion.transform.SetParent(canvasConfirmacion.transform, false);
-        
-        Image imagenPanel = panelConfirmacion.AddComponent<Image>();
-        imagenPanel.color = new Color(0.1f, 0.1f, 0.2f, 0.95f);
-        
-        RectTransform rectPanel = panelConfirmacion.GetComponent<RectTransform>();
-        rectPanel.sizeDelta = new Vector2(500f, 300f);
-        rectPanel.anchorMin = new Vector2(0.5f, 0.5f);
-        rectPanel.anchorMax = new Vector2(0.5f, 0.5f);
-        rectPanel.pivot = new Vector2(0.5f, 0.5f);
-        rectPanel.anchoredPosition = Vector2.zero;
-        
-        // Crear título
-        GameObject titulo = new GameObject("Titulo");
-        titulo.transform.SetParent(panelConfirmacion.transform, false);
-        
-        textoTitulo = titulo.AddComponent<TextMeshProUGUI>();
-        textoTitulo.text = tituloVentana;
-        textoTitulo.fontSize = 32;
-        textoTitulo.color = Color.yellow;
-        textoTitulo.fontStyle = FontStyles.Bold;
-        textoTitulo.alignment = TextAlignmentOptions.Center;
-        
-        RectTransform rectTitulo = titulo.GetComponent<RectTransform>();
-        rectTitulo.sizeDelta = new Vector2(450f, 60f);
-        rectTitulo.anchoredPosition = new Vector2(0f, 80f);
-        
-        // Crear descripción
-        GameObject descripcion = new GameObject("Descripcion");
-        descripcion.transform.SetParent(panelConfirmacion.transform, false);
-        
-        textoDescripcion = descripcion.AddComponent<TextMeshProUGUI>();
-        textoDescripcion.text = descripcionVentana;
-        textoDescripcion.fontSize = 20;
-        textoDescripcion.color = Color.white;
-        textoDescripcion.alignment = TextAlignmentOptions.Center;
-        textoDescripcion.textWrappingMode = TextWrappingModes.Normal;
-        
-        RectTransform rectDescripcion = descripcion.GetComponent<RectTransform>();
-        rectDescripcion.sizeDelta = new Vector2(450f, 80f);
-        rectDescripcion.anchoredPosition = new Vector2(0f, 10f);
-        
-        // Crear botón IR
-        botonIr = CrearBoton(panelConfirmacion, textoBotonIr, new Vector2(-100f, -60f), new Color(0.2f, 0.6f, 0.2f));
-        
-        // Crear botón CANCELAR
-        botonQuedarse = CrearBoton(panelConfirmacion, textoBotonQuedarse, new Vector2(100f, -60f), new Color(0.6f, 0.2f, 0.2f));
-        
-        if (mostrarDebug)
-        {
-            Debug.LogError("✅ UI COMPLETA DE SALIDA NOCTURNA CREADA");
-        }
+        AsegurarTextoInteraccion();
+        if (textoInteraccion != null)
+            textoInteraccion.gameObject.SetActive(true);
     }
-    
-    private Button CrearBoton(GameObject padre, string texto, Vector2 posicion, Color color)
+
+    private void OcultarTextoInteraccion()
     {
-        GameObject botonObj = new GameObject("Boton_" + texto.Replace(" ", ""));
-        botonObj.transform.SetParent(padre.transform, false);
-        
-        Button boton = botonObj.AddComponent<Button>();
-        Image imagenBoton = botonObj.AddComponent<Image>();
-        imagenBoton.color = color;
-        
-        RectTransform rectBoton = botonObj.GetComponent<RectTransform>();
-        rectBoton.sizeDelta = new Vector2(150f, 50f);
-        rectBoton.anchoredPosition = posicion;
-        
-        // Texto del botón
-        GameObject textoObj = new GameObject("Texto");
-        textoObj.transform.SetParent(botonObj.transform, false);
-        
-        TextMeshProUGUI textoBoton = textoObj.AddComponent<TextMeshProUGUI>();
-        textoBoton.text = texto;
-        textoBoton.fontSize = 18;
-        textoBoton.color = Color.white;
-        textoBoton.fontStyle = FontStyles.Bold;
-        textoBoton.alignment = TextAlignmentOptions.Center;
-        
-        RectTransform rectTexto = textoObj.GetComponent<RectTransform>();
-        rectTexto.anchorMin = Vector2.zero;
-        rectTexto.anchorMax = Vector2.one;
-        rectTexto.offsetMin = Vector2.zero;
-        rectTexto.offsetMax = Vector2.zero;
-        
-        return boton;
+        if (textoInteraccion != null)
+            textoInteraccion.gameObject.SetActive(false);
     }
-    
-    private void ConfigurarUI()
-    {
-        if (botonIr != null)
-        {
-            botonIr.onClick.RemoveAllListeners();
-            botonIr.onClick.AddListener(IrAEscenaDestino);
-        }
-        
-        if (botonQuedarse != null)
-        {
-            botonQuedarse.onClick.RemoveAllListeners();
-            botonQuedarse.onClick.AddListener(CerrarVentana);
-        }
-    }
-    
+
     private void MostrarVentanaConfirmacion()
     {
         ventanaAbierta = true;
-        
-        if (canvasConfirmacion != null)
-        {
-            canvasConfirmacion.gameObject.SetActive(true);
-        }
-        
-        if (panelConfirmacion != null)
-        {
-            panelConfirmacion.SetActive(true);
-        }
-        
+        OcultarTextoInteraccion(); // ← Aquí estaba el problema: se mostraba al cerrar
+
+        if (canvasConfirmacion != null) canvasConfirmacion.gameObject.SetActive(true);
+        if (panelConfirmacion != null) panelConfirmacion.SetActive(true);
+
         Time.timeScale = 0f;
         Cursor.lockState = CursorLockMode.None;
         Cursor.visible = true;
-        
-        // Ocultar texto de interacción cuando se abre la ventana
-        if (textoInteraccion != null)
-        {
-            textoInteraccion.gameObject.SetActive(false);
-        }
-        
-        if (mostrarDebug)
-        {
-            Debug.LogError("🌙 VENTANA DE SALIDA NOCTURNA MOSTRADA");
-        }
+
+        if (mostrarDebug) Debug.Log("VENTANA ABIERTA");
     }
-    
+
     private void CerrarVentana()
     {
         ventanaAbierta = false;
@@ -316,117 +150,178 @@ public class SalidaNoche : MonoBehaviour
         Time.timeScale = 1f;
         Cursor.lockState = CursorLockMode.Locked;
         Cursor.visible = false;
-        
-        // Mostrar texto de interacción nuevamente si el jugador sigue en el área
-        if (jugadorEnArea && textoInteraccion != null)
-        {
-            textoInteraccion.gameObject.SetActive(true);
-        }
-        
-        if (mostrarDebug)
-        {
-            Debug.LogError("❌ VENTANA DE SALIDA NOCTURNA CERRADA");
-        }
+
+        // Solo mostramos el texto si seguimos dentro del área
+        if (jugadorEnArea && !ventanaAbierta)
+            MostrarTextoInteraccion();
+
+        if (mostrarDebug) Debug.Log("VENTANA CERRADA");
     }
-    
+
     private void OcultarVentana()
     {
-        if (canvasConfirmacion != null)
-        {
-            canvasConfirmacion.gameObject.SetActive(false);
-        }
-        
-        if (panelConfirmacion != null)
-        {
-            panelConfirmacion.SetActive(false);
-        }
+        if (canvasConfirmacion != null) canvasConfirmacion.gameObject.SetActive(false);
+        if (panelConfirmacion != null) panelConfirmacion.SetActive(false);
     }
-    
+
     private void IrAEscenaDestino()
     {
-        if (mostrarDebug)
-        {
-            Debug.LogError("🚀 CARGANDO ESCENA: " + escenaDestino);
-        }
-        
         Time.timeScale = 1f;
         Cursor.lockState = CursorLockMode.Locked;
         Cursor.visible = false;
-        
+
+        if (mostrarDebug) Debug.Log($"CARGANDO ESCENA: {escenaDestino}");
+
         try
         {
             SceneManager.LoadScene(escenaDestino);
         }
         catch (System.Exception e)
         {
-            Debug.LogError("❌ ERROR AL CARGAR ESCENA: " + e.Message);
-            try
-            {
-                int indiceEscena = escenaDestino.Contains("2") ? 2 : 1;
-                SceneManager.LoadScene(indiceEscena);
-                Debug.LogError("✅ Escena cargada por índice: " + indiceEscena);
-            }
-            catch
-            {
-                Debug.LogError("❌ Tampoco se pudo cargar por índice");
-                CerrarVentana();
-            }
+            Debug.LogError("ERROR AL CARGAR: " + e.Message);
         }
     }
-    
+
+    // TRIGGERS → Aquí está el fix principal que querías
     void OnTriggerEnter2D(Collider2D other)
     {
-        if (other.CompareTag("Player"))
-        {
-            jugadorEnArea = true;
-            jugador = other.GetComponent<MovimientoJugador>();
-            
-            if (mostrarDebug)
-            {
-                Debug.LogError("🌙 JUGADOR ENTRÓ EN ÁREA DE SALIDA NOCTURNA");
-            }
-            
-            // 🔧 MOSTRAR TEXTO DE INTERACCIÓN
-            if (textoInteraccion != null && !ventanaAbierta)
-            {
-                textoInteraccion.gameObject.SetActive(true);
-                textoInteraccion.text = $"Presiona {teclaInteraccion} para ir a {escenaDestino}";
-                
-                if (mostrarDebug)
-                {
-                    Debug.LogError("💬 TEXTO DE INTERACCIÓN MOSTRADO");
-                }
-            }
-        }
+        if (!other.CompareTag("Player")) return;
+
+        jugadorEnArea = true;
+        jugador = other.GetComponent<MovimientoJugador>();
+
+        // Solo mostrar si la ventana NO está abierta
+        if (!ventanaAbierta)
+            MostrarTextoInteraccion();
+
+        if (mostrarDebug) Debug.Log("JUGADOR ENTRÓ → Texto mostrado");
     }
-    
+
     void OnTriggerExit2D(Collider2D other)
     {
-        if (other.CompareTag("Player"))
+        if (!other.CompareTag("Player")) return;
+
+        jugadorEnArea = false;
+
+        // Siempre ocultar al salir
+        OcultarTextoInteraccion();
+
+        // Si la ventana estaba abierta y sales → cerrarla
+        if (ventanaAbierta)
+            CerrarVentana();
+
+        if (mostrarDebug) Debug.Log("JUGADOR SALIÓ → Texto ocultado");
+    }
+
+    // ================== CREACIÓN DE UI COMPLETA (100% original) ==================
+    private void CrearUICompleta()
+    {
+        if (mostrarDebug) Debug.Log("CREANDO UI COMPLETA");
+
+        GameObject canvasObj = new GameObject("Canvas_SalidaNoche");
+        canvasConfirmacion = canvasObj.AddComponent<Canvas>();
+        canvasConfirmacion.renderMode = RenderMode.ScreenSpaceOverlay;
+        canvasConfirmacion.sortingOrder = 999;
+
+        CanvasScaler scaler = canvasObj.AddComponent<CanvasScaler>();
+        scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+        scaler.referenceResolution = new Vector2(1920f, 1080f);
+        canvasObj.AddComponent<GraphicRaycaster>();
+
+        // Fondo oscuro
+        GameObject fondo = new GameObject("Fondo");
+        fondo.transform.SetParent(canvasConfirmacion.transform, false);
+        Image imgFondo = fondo.AddComponent<Image>();
+        imgFondo.color = new Color(0f, 0f, 0f, 0.8f);
+        RectTransform rtFondo = fondo.GetComponent<RectTransform>();
+        rtFondo.anchorMin = Vector2.zero;
+        rtFondo.anchorMax = Vector2.one;
+        rtFondo.offsetMin = rtFondo.offsetMax = Vector2.zero;
+
+        // Panel central
+        panelConfirmacion = new GameObject("Panel_Confirmacion");
+        panelConfirmacion.transform.SetParent(canvasConfirmacion.transform, false);
+        Image imgPanel = panelConfirmacion.AddComponent<Image>();
+        imgPanel.color = new Color(0.1f, 0.1f, 0.2f, 0.95f);
+        RectTransform rtPanel = panelConfirmacion.GetComponent<RectTransform>();
+        rtPanel.sizeDelta = new Vector2(500f, 300f);
+        rtPanel.anchorMin = rtPanel.anchorMax = new Vector2(0.5f, 0.5f);
+        rtPanel.pivot = new Vector2(0.5f, 0.5f);
+
+        // Título
+        GameObject titulo = new GameObject("Titulo");
+        titulo.transform.SetParent(panelConfirmacion.transform, false);
+        textoTitulo = titulo.AddComponent<TextMeshProUGUI>();
+        textoTitulo.text = tituloVentana;
+        textoTitulo.fontSize = 32;
+        textoTitulo.color = Color.yellow;
+        textoTitulo.fontStyle = FontStyles.Bold;
+        textoTitulo.alignment = TextAlignmentOptions.Center;
+        RectTransform rtTitulo = titulo.GetComponent<RectTransform>();
+        rtTitulo.sizeDelta = new Vector2(450f, 60f);
+        rtTitulo.anchoredPosition = new Vector2(0f, 80f);
+
+        // Descripción
+        GameObject desc = new GameObject("Descripcion");
+        desc.transform.SetParent(panelConfirmacion.transform, false);
+        textoDescripcion = desc.AddComponent<TextMeshProUGUI>();
+        textoDescripcion.text = descripcionVentana;
+        textoDescripcion.fontSize = 20;
+        textoDescripcion.color = Color.white;
+        textoDescripcion.alignment = TextAlignmentOptions.Center;
+        RectTransform rtDesc = desc.GetComponent<RectTransform>();
+        rtDesc.sizeDelta = new Vector2(450f, 80f);
+        rtDesc.anchoredPosition = new Vector2(0f, 10f);
+
+        // Botones
+        botonIr = CrearBoton(panelConfirmacion, textoBotonIr, new Vector2(-100f, -60f), new Color(0.2f, 0.6f, 0.2f));
+        botonQuedarse = CrearBoton(panelConfirmacion, textoBotonQuedarse, new Vector2(100f, -60f), new Color(0.6f, 0.2f, 0.2f));
+
+        if (mostrarDebug) Debug.Log("UI COMPLETA CREADA");
+    }
+
+    private Button CrearBoton(GameObject padre, string texto, Vector2 posicion, Color color)
+    {
+        GameObject btnObj = new GameObject("Boton_" + texto.Replace(" ", ""));
+        btnObj.transform.SetParent(padre.transform, false);
+
+        Button btn = btnObj.AddComponent<Button>();
+        Image img = btnObj.AddComponent<Image>();
+        img.color = color;
+
+        RectTransform rt = btnObj.GetComponent<RectTransform>();
+        rt.sizeDelta = new Vector2(150f, 50f);
+        rt.anchoredPosition = posicion;
+
+        GameObject txtObj = new GameObject("Texto");
+        txtObj.transform.SetParent(btnObj.transform, false);
+        TextMeshProUGUI txt = txtObj.AddComponent<TextMeshProUGUI>();
+        txt.text = texto;
+        txt.fontSize = 18;
+        txt.color = Color.white;
+        txt.fontStyle = FontStyles.Bold;
+        txt.alignment = TextAlignmentOptions.Center;
+
+        RectTransform rtTxt = txtObj.GetComponent<RectTransform>();
+        rtTxt.anchorMin = Vector2.zero;
+        rtTxt.anchorMax = Vector2.one;
+        rtTxt.offsetMin = rtTxt.offsetMax = Vector2.zero;
+
+        return btn;
+    }
+
+    private void ConfigurarUI()
+    {
+        if (botonIr != null)
         {
-            jugadorEnArea = false;
-            jugador = null;
-            
-            if (ventanaAbierta)
-            {
-                CerrarVentana();
-            }
-            
-            // 🔧 OCULTAR TEXTO DE INTERACCIÓN
-            if (textoInteraccion != null)
-            {
-                textoInteraccion.gameObject.SetActive(false);
-                
-                if (mostrarDebug)
-                {
-                    Debug.LogError("💬 TEXTO DE INTERACCIÓN OCULTADO");
-                }
-            }
-            
-            if (mostrarDebug)
-            {
-                Debug.LogError("🌙 JUGADOR SALIÓ DEL ÁREA");
-            }
+            botonIr.onClick.RemoveAllListeners();
+            botonIr.onClick.AddListener(IrAEscenaDestino);
+        }
+
+        if (botonQuedarse != null)
+        {
+            botonQuedarse.onClick.RemoveAllListeners();
+            botonQuedarse.onClick.AddListener(CerrarVentana);
         }
     }
 }

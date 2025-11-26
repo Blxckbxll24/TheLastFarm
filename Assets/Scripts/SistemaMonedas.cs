@@ -228,7 +228,7 @@ public class SistemaMonedas : MonoBehaviour
         textoObj.transform.SetParent(canvasMonedas.transform, false);
         
         textoMonedas = textoObj.AddComponent<TextMeshProUGUI>();
-        textoMonedas.text = $"💰 {monedasActuales}";
+        textoMonedas.text = $" {monedasActuales}";
         textoMonedas.fontSize = 24;
         textoMonedas.color = Color.yellow;
         textoMonedas.fontStyle = FontStyles.Bold;
@@ -337,14 +337,39 @@ public class SistemaMonedas : MonoBehaviour
     {
         if (textoMonedas != null)
         {
-            textoMonedas.text = $"💰 {monedasMostradas}";
+            textoMonedas.text = $" {monedasMostradas}";
         }
     }
     
-    // 💾 GUARDAR MONEDAS EN PLAYERPREFS
+    // 🆕 MÉTODO PÚBLICO PARA ACTUALIZAR DISPLAY COMPLETAMENTE
+    public void ActualizarDisplayCompleto()
+    {
+        // Forzar actualización de las variables mostradas
+        monedasMostradas = monedasActuales;
+        
+        // Actualizar el display
+        ActualizarDisplay();
+        
+        // Forzar que el canvas se actualice
+        if (textoMonedas != null && textoMonedas.canvas != null)
+        {
+            Canvas.ForceUpdateCanvases();
+        }
+        
+        if (mostrarDebug)
+        {
+            Debug.LogError($"💰 DISPLAY ACTUALIZADO FORZADAMENTE: {monedasActuales}");
+        }
+    }
+
+    // 🔧 MÉTODO MEJORADO PARA ESTABLECER MONEDAS
+
+
+    // 🔧 MÉTODO MEJORADO PARA GUARDAR
     private void GuardarMonedas()
     {
         PlayerPrefs.SetInt("Monedas", monedasActuales);
+        PlayerPrefs.SetInt("Zanahorias", monedasActuales); // También guardar como Zanahorias para compatibilidad
         PlayerPrefs.Save();
         
         if (mostrarDebug && Time.frameCount % 60 == 0) // Debug ocasional
@@ -352,9 +377,9 @@ public class SistemaMonedas : MonoBehaviour
             Debug.LogError($"💾 MONEDAS GUARDADAS: {monedasActuales}");
         }
     }
-    
+
     // 📂 CARGAR MONEDAS DESDE PLAYERPREFS
-    private void CargarMonedas()
+    public void CargarMonedas()
     {
         monedasActuales = PlayerPrefs.GetInt("Monedas", monedasIniciales);
         monedasMostradas = monedasActuales;
@@ -364,7 +389,39 @@ public class SistemaMonedas : MonoBehaviour
             Debug.LogError($"📂 MONEDAS CARGADAS: {monedasActuales}");
         }
     }
-    
+
+    // 🆕 MÉTODO PÚBLICO PARA GUARDAR CONFIGURACIÓN
+    public void GuardarConfiguracion()
+    {
+        GuardarMonedas(); // Usar el método privado existente
+        
+        if (mostrarDebug)
+        {
+            Debug.LogError("💾 CONFIGURACIÓN DE MONEDAS GUARDADA");
+        }
+    }
+
+    // 🆕 MÉTODO PARA FORZAR RECREACIÓN DE UI DESPUÉS DE MUERTE
+    public void ForzarRecreacionUIDespuesMuerte()
+    {
+        Debug.LogError("💀 FORZANDO RECREACIÓN DE UI DESPUÉS DE MUERTE...");
+        
+        // Resetear variables
+        monedasActuales = 0;
+        monedasMostradas = 0;
+        
+        // Guardar
+        GuardarMonedas();
+        
+        // Buscar o crear UI nuevamente
+        ConfigurarUIEscenaActual();
+        
+        // Actualizar display
+        ActualizarDisplay();
+        
+        Debug.LogError("✅ UI RECREADA CON MONEDAS EN 0");
+    }
+
     // 🔧 MÉTODOS PÚBLICOS PARA OTROS SCRIPTS (ARREGLADOS)
     public int GetMonedasActuales() 
     { 
@@ -383,12 +440,20 @@ public class SistemaMonedas : MonoBehaviour
     public void SetMonedas(int cantidad)
     {
         monedasActuales = Mathf.Max(0, cantidad);
+        monedasMostradas = monedasActuales; // Sincronizar inmediatamente
+        
         GuardarMonedas();
-        AnimarCambioMonedas();
+        ActualizarDisplay();
+        
+        // Forzar actualización del canvas
+        if (textoMonedas != null && textoMonedas.canvas != null)
+        {
+            Canvas.ForceUpdateCanvases();
+        }
         
         if (mostrarDebug)
         {
-            Debug.LogError($"🔧 MONEDAS ESTABLECIDAS: {monedasActuales}");
+            Debug.LogError($"🔧 MONEDAS ESTABLECIDAS Y SINCRONIZADAS: {monedasActuales}");
         }
     }
 
@@ -465,6 +530,70 @@ public class SistemaMonedas : MonoBehaviour
         }
     }
     
+    // 🆕 MÉTODOS FALTANTES PARA COMPATIBILIDAD CON CanvasMuerte
+    public int GetZanahorias()
+    {
+        return monedasActuales;
+    }
+    
+    public bool GastarZanahorias(int cantidad)
+    {
+        if (cantidad <= 0) return false;
+        
+        if (monedasActuales >= cantidad)
+        {
+            monedasActuales -= cantidad;
+            
+            // Guardar inmediatamente
+            GuardarMonedas();
+            
+            // Animar cambio en UI
+            AnimarCambioMonedas();
+            
+            if (mostrarDebug)
+            {
+                Debug.LogError($"💸 ZANAHORIAS GASTADAS: -{cantidad} | Total: {monedasActuales}");
+            }
+            
+            return true;
+        }
+        else
+        {
+            if (mostrarDebug)
+            {
+                Debug.LogError($"❌ NO HAY SUFICIENTES ZANAHORIAS: Tienes {monedasActuales}, necesitas {cantidad}");
+            }
+            return false;
+        }
+    }
+    
+    public void SetZanahorias(int cantidad)
+    {
+        monedasActuales = Mathf.Max(0, cantidad);
+        
+        // Guardar inmediatamente
+        GuardarMonedas();
+        
+        // Animar cambio en UI
+        AnimarCambioMonedas();
+        
+        if (mostrarDebug)
+        {
+            Debug.LogError($"🔧 ZANAHORIAS ESTABLECIDAS: {monedasActuales}");
+        }
+    }
+    
+    // 🆕 ALIAS ADICIONALES PARA COMPATIBILIDAD
+    public bool TieneSuficientesZanahorias(int cantidad)
+    {
+        return monedasActuales >= cantidad;
+    }
+    
+    public int GetCantidadZanahorias()
+    {
+        return monedasActuales;
+    }
+
     // 🔧 MÉTODOS DE TESTING MANUAL
     void Update()
     {

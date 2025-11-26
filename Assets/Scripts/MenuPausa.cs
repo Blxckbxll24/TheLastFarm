@@ -359,11 +359,23 @@ public class MenuPausa : MonoBehaviour
         
         // Guardar estado anterior
         timeScaleAnterior = Time.timeScale;
-        lockModeAnterior = CursorLockMode.None; // FORZAR NONE
-        cursorVisibleAnterior = true; // FORZAR VISIBLE
+        lockModeAnterior = Cursor.lockState;
+        cursorVisibleAnterior = Cursor.visible;
         
-        // NUNCA pausar el tiempo
-        // Time.timeScale = 0f; // COMENTADO - No pausar
+        // 🔧 PAUSAR EL TIEMPO EN ESCENA2
+        string escenaActual = UnityEngine.SceneManagement.SceneManager.GetActiveScene().name;
+        bool esEscena2 = escenaActual.Contains("Escena2") || escenaActual.Contains("2");
+        
+        if (esEscena2)
+        {
+            Time.timeScale = 0f; // PAUSAR en Escena2
+            Debug.LogError("⏸️ ESCENA2 - TIEMPO PAUSADO");
+        }
+        else
+        {
+            Time.timeScale = 1f; // NO pausar en otras escenas
+            Debug.LogError("⏸️ OTRAS ESCENAS - TIEMPO NO PAUSADO");
+        }
         
         // FORZAR cursor visible SIEMPRE
         Cursor.lockState = CursorLockMode.None;
@@ -391,9 +403,7 @@ public class MenuPausa : MonoBehaviour
         
         if (mostrarDebug)
         {
-            Debug.LogError("⏸️ JUEGO PAUSADO - Solo panel pausa visible");
-            Debug.LogError("  - Panel pausa activo: " + (panelPausa != null && panelPausa.activeInHierarchy));
-            Debug.LogError("  - Panel opciones activo: " + (panelOpciones != null && panelOpciones.activeInHierarchy));
+            Debug.LogError($"⏸️ JUEGO PAUSADO - Escena: {escenaActual} | TimeScale: {Time.timeScale}");
         }
     }
     
@@ -404,8 +414,8 @@ public class MenuPausa : MonoBehaviour
         juegoEnPausa = false;
         enMenuOpciones = false;
         
-        // NO restaurar tiempo - mantener normal
-        Time.timeScale = 1f;
+        // Restaurar tiempo
+        Time.timeScale = timeScaleAnterior;
         
         // FORZAR cursor visible
         Cursor.lockState = CursorLockMode.None;
@@ -422,7 +432,7 @@ public class MenuPausa : MonoBehaviour
         
         if (mostrarDebug)
         {
-            Debug.LogError("▶️ JUEGO REANUDADO - Canvas OCULTO");
+            Debug.LogError($"▶️ JUEGO REANUDADO - TimeScale: {Time.timeScale}");
         }
     }
     

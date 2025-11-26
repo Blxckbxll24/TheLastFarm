@@ -1,72 +1,55 @@
 using UnityEngine;
 using UnityEngine.UI;
-using TMPro;
 using UnityEngine.SceneManagement;
+using TMPro;
 
-/// <summary>
-/// Canvas que aparece cuando el jugador muere
-/// Permite revivirlo manteniendo sus monedas
-/// </summary>
 public class CanvasMuerte : MonoBehaviour
 {
-    [Header("📱 REFERENCIAS UI")]
+    [Header("🎨 Referencias UI")]
     [SerializeField] private Canvas canvasMuerte;
     [SerializeField] private GameObject panelMuerte;
     [SerializeField] private Button botonRevivir;
     [SerializeField] private Button botonMenuPrincipal;
     [SerializeField] private TextMeshProUGUI textoMuerte;
-    [SerializeField] private TextMeshProUGUI textoMonedas;
+    [SerializeField] private TextMeshProUGUI textoRevivir;
+    [SerializeField] private TextMeshProUGUI textoZanahorias;
     
-    [Header("🔧 CONFIGURACIÓN")]
-    [SerializeField] private bool crearUIAutomaticamente = true;
-    [SerializeField] private bool mostrarDebug = false; // REDUCIDO DEBUG
-    [SerializeField] private bool conservarMonedas = true;
+    [Header("🥕 Sistema de Revivir")]
+    [SerializeField] private int costoRevivir = 10; // Zanahorias necesarias para revivir
+    [SerializeField] private bool mostrarDebug = true;
     
-    // Variables de estado
+    [Header("🎨 Configuración Visual")]
+    [SerializeField] private Color colorSuficientes = Color.green;
+    [SerializeField] private Color colorInsuficientes = Color.red;
+    
     private static CanvasMuerte instanciaActual;
     private bool panelMostrado = false;
-    
+    private int zanahoriasPoseidas = 0;
+
     void Awake()
     {
-        // Solo mantener una instancia por escena
-        if (instanciaActual != null && instanciaActual != this)
-        {
-            Destroy(gameObject);
-            return;
-        }
-        
         instanciaActual = this;
     }
-    
+
     void Start()
-    {
-        // Crear UI automáticamente si es necesario
-        if (crearUIAutomaticamente)
-        {
-            CrearUICompleta();
-        }
-        
-        // Configurar botones
-        ConfigurarBotones();
-        
-        // Ocultar panel al inicio
-        OcultarPanel();
-    }
-    
-    private void CrearUICompleta()
     {
         if (mostrarDebug)
         {
-            Debug.LogError("🎨 CREANDO UI COMPLETA DE MUERTE...");
+            Debug.LogError("💀 CANVAS MUERTE INICIALIZADO");
         }
-        
-        // Crear Canvas si no existe
+
+        CrearUICompleta();
+        OcultarPanelMuerte();
+    }
+
+    private void CrearUICompleta()
+    {
         if (canvasMuerte == null)
         {
             GameObject canvasObj = new GameObject("Canvas_Muerte");
             canvasMuerte = canvasObj.AddComponent<Canvas>();
             canvasMuerte.renderMode = RenderMode.ScreenSpaceOverlay;
-            canvasMuerte.sortingOrder = 1000; // Muy arriba
+            canvasMuerte.sortingOrder = 2000; // MUY ALTO
             
             CanvasScaler scaler = canvasObj.AddComponent<CanvasScaler>();
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
@@ -74,246 +57,550 @@ public class CanvasMuerte : MonoBehaviour
             
             canvasObj.AddComponent<GraphicRaycaster>();
         }
-        
-        // Crear panel principal
+
         if (panelMuerte == null)
         {
-            panelMuerte = new GameObject("Panel_Muerte");
-            panelMuerte.transform.SetParent(canvasMuerte.transform, false);
-            
-            // Fondo oscuro
-            Image fondoMuerte = panelMuerte.AddComponent<Image>();
-            fondoMuerte.color = new Color(0f, 0f, 0f, 0.8f);
-            
-            RectTransform rectPanel = panelMuerte.GetComponent<RectTransform>();
-            rectPanel.anchorMin = Vector2.zero;
-            rectPanel.anchorMax = Vector2.one;
-            rectPanel.offsetMin = Vector2.zero;
-            rectPanel.offsetMax = Vector2.zero;
+            CrearPanelMuerte();
         }
-        
-        // Crear contenido central
-        GameObject panelCentral = new GameObject("Panel_Central");
-        panelCentral.transform.SetParent(panelMuerte.transform, false);
-        
-        Image fondoCentral = panelCentral.AddComponent<Image>();
-        fondoCentral.color = new Color(0.1f, 0.1f, 0.1f, 0.95f);
-        
-        RectTransform rectCentral = panelCentral.GetComponent<RectTransform>();
-        rectCentral.sizeDelta = new Vector2(500f, 400f);
-        rectCentral.anchorMin = new Vector2(0.5f, 0.5f);
-        rectCentral.anchorMax = new Vector2(0.5f, 0.5f);
-        rectCentral.pivot = new Vector2(0.5f, 0.5f);
-        rectCentral.anchoredPosition = Vector2.zero;
-        
-        // Crear título
-        CrearTexto(panelCentral, "💀 HAS MUERTO", new Vector2(0f, 120f), 36, FontStyles.Bold, Color.red);
-        
-        // Texto sobre conservar monedas
-        if (conservarMonedas)
-        {
-            CrearTexto(panelCentral, "💰 TUS MONEDAS SE CONSERVAN", new Vector2(0f, 70f), 20, FontStyles.Normal, Color.yellow);
-            
-            // Mostrar cantidad actual de monedas
-            textoMonedas = CrearTexto(panelCentral, "Monedas: 0", new Vector2(0f, 40f), 24, FontStyles.Bold, Color.cyan);
-        }
-        
-        CrearTexto(panelCentral, "¿Qué deseas hacer?", new Vector2(0f, 0f), 20);
-        
-        // Crear botones
-        botonRevivir = CrearBoton(panelCentral, "🔄 REVIVIR", new Vector2(0f, -50f), Color.green);
-        botonMenuPrincipal = CrearBoton(panelCentral, "🏠 MENÚ PRINCIPAL", new Vector2(0f, -120f), Color.blue);
+
+        ConfigurarBotones();
     }
-    
-    private TextMeshProUGUI CrearTexto(GameObject padre, string texto, Vector2 posicion, float tamano = 18, FontStyles estilo = FontStyles.Normal, Color? color = null)
+
+    private void CrearPanelMuerte()
     {
-        GameObject textoObj = new GameObject("Texto_" + texto.Replace(" ", "_"));
-        textoObj.transform.SetParent(padre.transform, false);
+        // Fondo completo oscuro
+        GameObject fondo = new GameObject("Fondo_Muerte");
+        fondo.transform.SetParent(canvasMuerte.transform, false);
         
-        TextMeshProUGUI textoComp = textoObj.AddComponent<TextMeshProUGUI>();
-        textoComp.text = texto;
-        textoComp.fontSize = tamano;
-        textoComp.color = color ?? Color.white;
-        textoComp.fontStyle = estilo;
-        textoComp.alignment = TextAlignmentOptions.Center;
-        textoComp.textWrappingMode = TextWrappingModes.Normal;
+        Image imgFondo = fondo.AddComponent<Image>();
+        imgFondo.color = new Color(0f, 0f, 0f, 0.9f); // Negro casi opaco
         
-        RectTransform rectTexto = textoObj.GetComponent<RectTransform>();
-        rectTexto.sizeDelta = new Vector2(450f, tamano + 10f);
-        rectTexto.anchoredPosition = posicion;
+        RectTransform rectFondo = fondo.GetComponent<RectTransform>();
+        rectFondo.anchorMin = Vector2.zero;
+        rectFondo.anchorMax = Vector2.one;
+        rectFondo.offsetMin = Vector2.zero;
+        rectFondo.offsetMax = Vector2.zero;
+
+        // Panel central
+        panelMuerte = new GameObject("Panel_Muerte");
+        panelMuerte.transform.SetParent(canvasMuerte.transform, false);
         
-        return textoComp;
+        Image imgPanel = panelMuerte.AddComponent<Image>();
+        imgPanel.color = new Color(0.1f, 0.1f, 0.1f, 0.95f); // Gris oscuro
+        
+        RectTransform rectPanel = panelMuerte.GetComponent<RectTransform>();
+        rectPanel.sizeDelta = new Vector2(600f, 500f);
+        rectPanel.anchorMin = new Vector2(0.5f, 0.5f);
+        rectPanel.anchorMax = new Vector2(0.5f, 0.5f);
+        rectPanel.pivot = new Vector2(0.5f, 0.5f);
+
+        // Título "HAS MUERTO"
+        GameObject titulo = new GameObject("Titulo_Muerte");
+        titulo.transform.SetParent(panelMuerte.transform, false);
+        
+        textoMuerte = titulo.AddComponent<TextMeshProUGUI>();
+        textoMuerte.text = "💀 HAS MUERTO 💀";
+        textoMuerte.fontSize = 48;
+        textoMuerte.color = Color.red;
+        textoMuerte.fontStyle = FontStyles.Bold;
+        textoMuerte.alignment = TextAlignmentOptions.Center;
+        
+        RectTransform rectTitulo = titulo.GetComponent<RectTransform>();
+        rectTitulo.sizeDelta = new Vector2(550f, 80f);
+        rectTitulo.anchoredPosition = new Vector2(0f, 150f);
+
+        // Texto de zanahorias
+        GameObject textoZanObj = new GameObject("Texto_Zanahorias");
+        textoZanObj.transform.SetParent(panelMuerte.transform, false);
+        
+        textoZanahorias = textoZanObj.AddComponent<TextMeshProUGUI>();
+        textoZanahorias.text = "🥕 Zanahorias: 0/10";
+        textoZanahorias.fontSize = 24;
+        textoZanahorias.color = colorInsuficientes;
+        textoZanahorias.alignment = TextAlignmentOptions.Center;
+        
+        RectTransform rectZan = textoZanObj.GetComponent<RectTransform>();
+        rectZan.sizeDelta = new Vector2(400f, 40f);
+        rectZan.anchoredPosition = new Vector2(0f, 50f);
+
+        // Texto de revivir
+        GameObject textoRevObj = new GameObject("Texto_Revivir");
+        textoRevObj.transform.SetParent(panelMuerte.transform, false);
+        
+        textoRevivir = textoRevObj.AddComponent<TextMeshProUGUI>();
+        textoRevivir.text = "Necesitas 10 🥕 para revivir";
+        textoRevivir.fontSize = 20;
+        textoRevivir.color = Color.white;
+        textoRevivir.alignment = TextAlignmentOptions.Center;
+        
+        RectTransform rectRev = textoRevObj.GetComponent<RectTransform>();
+        rectRev.sizeDelta = new Vector2(450f, 30f);
+        rectRev.anchoredPosition = new Vector2(0f, 10f);
+
+        // Botón Revivir
+        botonRevivir = CrearBoton(panelMuerte, "💚 REVIVIR", new Vector2(-120f, -80f), colorSuficientes);
+        
+        // Botón Menú Principal
+        botonMenuPrincipal = CrearBoton(panelMuerte, "🏠 MENÚ PRINCIPAL", new Vector2(120f, -80f), Color.gray);
+
+        // Texto de advertencia
+        GameObject advertencia = new GameObject("Advertencia");
+        advertencia.transform.SetParent(panelMuerte.transform, false);
+        
+        TextMeshProUGUI textoAdv = advertencia.AddComponent<TextMeshProUGUI>();
+        textoAdv.text = "Si no tienes suficientes zanahorias,\nirás al menú con 0 zanahorias";
+        textoAdv.fontSize = 16;
+        textoAdv.color = Color.yellow;
+        textoAdv.alignment = TextAlignmentOptions.Center;
+        textoAdv.fontStyle = FontStyles.Italic;
+        
+        RectTransform rectAdv = advertencia.GetComponent<RectTransform>();
+        rectAdv.sizeDelta = new Vector2(500f, 60f);
+        rectAdv.anchoredPosition = new Vector2(0f, -150f);
     }
-    
+
     private Button CrearBoton(GameObject padre, string texto, Vector2 posicion, Color color)
     {
         GameObject botonObj = new GameObject("Boton_" + texto.Replace(" ", "_"));
         botonObj.transform.SetParent(padre.transform, false);
-        
+
         Button boton = botonObj.AddComponent<Button>();
-        Image imagenBoton = botonObj.AddComponent<Image>();
-        imagenBoton.color = color;
-        
-        RectTransform rectBoton = botonObj.GetComponent<RectTransform>();
-        rectBoton.sizeDelta = new Vector2(300f, 50f);
-        rectBoton.anchoredPosition = posicion;
-        
-        // Texto del botón
+        Image img = botonObj.AddComponent<Image>();
+        img.color = color;
+
+        RectTransform rect = botonObj.GetComponent<RectTransform>();
+        rect.sizeDelta = new Vector2(200f, 60f);
+        rect.anchoredPosition = posicion;
+
         GameObject textoObj = new GameObject("Texto");
         textoObj.transform.SetParent(botonObj.transform, false);
         
-        TextMeshProUGUI textoBoton = textoObj.AddComponent<TextMeshProUGUI>();
-        textoBoton.text = texto;
-        textoBoton.fontSize = 20;
-        textoBoton.color = Color.white;
-        textoBoton.fontStyle = FontStyles.Bold;
-        textoBoton.alignment = TextAlignmentOptions.Center;
-        
+        TextMeshProUGUI textComp = textoObj.AddComponent<TextMeshProUGUI>();
+        textComp.text = texto;
+        textComp.fontSize = 18;
+        textComp.color = Color.white;
+        textComp.fontStyle = FontStyles.Bold;
+        textComp.alignment = TextAlignmentOptions.Center;
+
         RectTransform rectTexto = textoObj.GetComponent<RectTransform>();
         rectTexto.anchorMin = Vector2.zero;
         rectTexto.anchorMax = Vector2.one;
         rectTexto.offsetMin = Vector2.zero;
         rectTexto.offsetMax = Vector2.zero;
-        
+
         return boton;
     }
-    
+
     private void ConfigurarBotones()
     {
         if (botonRevivir != null)
         {
             botonRevivir.onClick.RemoveAllListeners();
-            botonRevivir.onClick.AddListener(RevivirJugador);
+            botonRevivir.onClick.AddListener(IntentarRevivir);
         }
-        
+
         if (botonMenuPrincipal != null)
         {
             botonMenuPrincipal.onClick.RemoveAllListeners();
-            botonMenuPrincipal.onClick.AddListener(IrMenuPrincipal);
+            botonMenuPrincipal.onClick.AddListener(IrAlMenuPrincipal);
         }
     }
-    
-    // MÉTODO PRINCIPAL PARA MOSTRAR EL PANEL
+
     public void MostrarPanelMuerte()
     {
         if (panelMostrado) return;
-        
+
         panelMostrado = true;
-        
-        // Activar UI
-        if (canvasMuerte != null)
-        {
-            canvasMuerte.gameObject.SetActive(true);
-        }
-        
-        if (panelMuerte != null)
-        {
-            panelMuerte.SetActive(true);
-        }
-        
-        // Actualizar información de monedas
-        ActualizarInfoMonedas();
-        
-        // NO pausar juego, solo mostrar cursor
-        Time.timeScale = 1f; // MANTENER TIEMPO NORMAL
+
+        // PAUSAR JUEGO COMPLETAMENTE
+        Time.timeScale = 0f;
+
+        // FORZAR cursor visible
         Cursor.lockState = CursorLockMode.None;
         Cursor.visible = true;
-    }
-    
-    // Actualizar información de monedas en el panel
-    private void ActualizarInfoMonedas()
-    {
-        if (textoMonedas != null && conservarMonedas)
+
+        // Actualizar zanahorias
+        ActualizarContadorZanahorias();
+
+        // Mostrar UI
+        if (canvasMuerte != null) canvasMuerte.gameObject.SetActive(true);
+        if (panelMuerte != null) panelMuerte.SetActive(true);
+
+        if (mostrarDebug)
         {
-            SistemaMonedas sistemaMonedas = SistemaMonedas.GetInstancia();
-            if (sistemaMonedas != null)
-            {
-                int monedasActuales = sistemaMonedas.GetMonedasActuales();
-                textoMonedas.text = $"💰 Monedas conservadas: {monedasActuales}";
-            }
-            else
-            {
-                // Usar método estático como backup
-                int monedasActuales = SistemaMonedas.GetMonedasStatic();
-                textoMonedas.text = $"💰 Monedas conservadas: {monedasActuales}";
-            }
+            Debug.LogError("💀 PANEL DE MUERTE MOSTRADO");
         }
     }
-    
+
+    private void ActualizarContadorZanahorias()
+    {
+        // 🔧 USAR SistemaMonedas COMO FUENTE PRINCIPAL
+        // Intentar obtener zanahorias del SistemaMonedas primero
+        SistemaMonedas sistemaMonedas = FindObjectOfType<SistemaMonedas>();
+        if (sistemaMonedas != null)
+        {
+            zanahoriasPoseidas = sistemaMonedas.GetZanahorias();
+            if (mostrarDebug)
+            {
+                Debug.LogError($"🥕 ZANAHORIAS OBTENIDAS VÍA SistemaMonedas: {zanahoriasPoseidas}");
+            }
+        }
+        else
+        {
+            // 🔧 FALLBACK MEJORADO: Usar PlayerPrefs directamente
+            zanahoriasPoseidas = PlayerPrefs.GetInt("Zanahorias", 0);
+            if (mostrarDebug)
+            {
+                Debug.LogError($"🥕 ZANAHORIAS OBTENIDAS VÍA PlayerPrefs: {zanahoriasPoseidas}");
+            }
+        }
+
+        // Actualizar texto
+        if (textoZanahorias != null)
+        {
+            textoZanahorias.text = $"🥕 Zanahorias: {zanahoriasPoseidas}/{costoRevivir}";
+            
+            // Cambiar color según si tiene suficientes
+            bool tieneSuficientes = zanahoriasPoseidas >= costoRevivir;
+            textoZanahorias.color = tieneSuficientes ? colorSuficientes : colorInsuficientes;
+        }
+
+        // Actualizar estado del botón revivir
+        if (botonRevivir != null)
+        {
+            bool puedeRevivir = zanahoriasPoseidas >= costoRevivir;
+            botonRevivir.interactable = puedeRevivir;
+            
+            Image imgBoton = botonRevivir.GetComponent<Image>();
+            if (imgBoton != null)
+            {
+                imgBoton.color = puedeRevivir ? colorSuficientes : Color.gray;
+            }
+        }
+
+        // Actualizar texto de revivir
+        if (textoRevivir != null)
+        {
+            bool puedeRevivir = zanahoriasPoseidas >= costoRevivir;
+            textoRevivir.text = puedeRevivir ? 
+                $"✅ Puedes revivir por {costoRevivir} 🥕" : 
+                $"❌ Necesitas {costoRevivir - zanahoriasPoseidas} 🥕 más";
+            textoRevivir.color = puedeRevivir ? colorSuficientes : colorInsuficientes;
+        }
+
+        if (mostrarDebug)
+        {
+            Debug.LogError($"🥕 ZANAHORIAS: {zanahoriasPoseidas}/{costoRevivir} | Puede revivir: {zanahoriasPoseidas >= costoRevivir}");
+        }
+    }
+
+    private void IntentarRevivir()
+    {
+        // Verificar si tiene suficientes zanahorias
+        if (zanahoriasPoseidas < costoRevivir)
+        {
+            Debug.LogError("❌ NO TIENES SUFICIENTES ZANAHORIAS PARA REVIVIR");
+            
+            // Mostrar mensaje temporal
+            if (textoRevivir != null)
+            {
+                string textoOriginal = textoRevivir.text;
+                textoRevivir.text = "❌ ¡NO TIENES SUFICIENTES ZANAHORIAS!";
+                textoRevivir.color = Color.red;
+                
+                // Restaurar texto después de 2 segundos
+                Invoke("RestaurarTextoRevivir", 2f);
+            }
+            return;
+        }
+
+        if (mostrarDebug)
+        {
+            Debug.LogError("💚 REVIVIENDO JUGADOR - Cobrando 10 zanahorias");
+        }
+
+        // Cobrar zanahorias
+        CobrarZanahorias(costoRevivir);
+
+        // Revivir jugador
+        RevivirJugador();
+
+        // Ocultar panel
+        OcultarPanelMuerte();
+    }
+
+    private void CobrarZanahorias(int cantidad)
+    {
+        // 🔧 USAR SistemaMonedas COMO SISTEMA PRINCIPAL
+        bool exito = false;
+        
+        // Intentar cobrar vía SistemaMonedas primero
+        SistemaMonedas sistemaMonedas = FindObjectOfType<SistemaMonedas>();
+        if (sistemaMonedas != null)
+        {
+            exito = sistemaMonedas.GastarZanahorias(cantidad);
+            if (exito && mostrarDebug)
+            {
+                Debug.LogError($"💰 ZANAHORIAS COBRADAS VÍA SistemaMonedas: -{cantidad} | Restantes: {sistemaMonedas.GetZanahorias()}");
+            }
+        }
+        
+        // Fallback: PlayerPrefs directamente
+        if (!exito)
+        {
+            int zanahoriasSalvadas = PlayerPrefs.GetInt("Zanahorias", 0);
+            if (zanahoriasSalvadas >= cantidad)
+            {
+                PlayerPrefs.SetInt("Zanahorias", Mathf.Max(0, zanahoriasSalvadas - cantidad));
+                PlayerPrefs.Save();
+                exito = true;
+                
+                if (mostrarDebug)
+                {
+                    Debug.LogError($"💰 ZANAHORIAS COBRADAS VÍA PlayerPrefs: -{cantidad} | Restantes: {PlayerPrefs.GetInt("Zanahorias", 0)}");
+                }
+            }
+        }
+        
+        if (!exito)
+        {
+            Debug.LogError($"❌ ERROR CRÍTICO: No se pudieron cobrar {cantidad} zanahorias");
+        }
+    }
+
     private void RevivirJugador()
     {
-        // Buscar al jugador
-        MovimientoJugador jugador = FindObjectOfType<MovimientoJugador>();
-        
-        if (jugador != null)
+        // Buscar al jugador y revivirlo
+        MovimientoJugador jugadorScript = FindObjectOfType<MovimientoJugador>();
+        if (jugadorScript != null)
         {
-            // Revivir al jugador
-            jugador.ResetearEstadoJugador();
+            jugadorScript.CurarCompletamente();
+            Debug.LogError("✨ JUGADOR REVIVIDO CON VIDA COMPLETA");
         }
-        
-        // Ocultar panel y restaurar juego
-        OcultarPanel();
+        else
+        {
+            Debug.LogError("❌ NO SE PUDO ENCONTRAR AL JUGADOR PARA REVIVIR");
+        }
     }
-    
-    private void IrMenuPrincipal()
+
+    private void RestaurarTextoRevivir()
     {
-        // Restaurar tiempo antes de cambiar escena
+        ActualizarContadorZanahorias(); // Esto restaurará el texto correcto
+    }
+
+    private void IrAlMenuPrincipal()
+    {
+        if (mostrarDebug)
+        {
+            Debug.LogError("🏠 REGRESANDO AL MENÚ PRINCIPAL - PONIENDO ZANAHORIAS EN 0");
+        }
+
+        // 🔧 RESETEAR ZANAHORIAS COMPLETAMENTE EN TODOS LOS SISTEMAS
+        ResetearZanahoriasCompleto();
+
+        // Restaurar tiempo
         Time.timeScale = 1f;
-        
+
+        // Limpiar sistemas
+        LimpiarSistemasAntesCambioEscena();
+
         try
         {
             SceneManager.LoadScene("MenuPrincipal");
         }
-        catch
+        catch (System.Exception e)
         {
+            Debug.LogError("❌ ERROR AL CARGAR MENÚ: " + e.Message);
             try
             {
-                SceneManager.LoadScene(0); // Intentar por índice
+                SceneManager.LoadScene(0);
             }
             catch
             {
-                // Al menos ocultar el panel
-                OcultarPanel();
+                Debug.LogError("❌ Tampoco se pudo cargar escena por índice 0");
             }
         }
     }
+
+    // 🆕 NUEVO MÉTODO: RESETEAR ZANAHORIAS COMPLETAMENTE
+    private void ResetearZanahoriasCompleto()
+    {
+        Debug.LogError("🔄 RESETEANDO ZANAHORIAS EN TODOS LOS SISTEMAS...");
+        
+        // 1. Resetear en SistemaMonedas
+        SistemaMonedas sistemaMonedas = FindObjectOfType<SistemaMonedas>();
+        if (sistemaMonedas != null)
+        {
+            sistemaMonedas.SetMonedas(0);
+            sistemaMonedas.GuardarConfiguracion(); // Forzar guardado
+            Debug.LogError("✅ SistemaMonedas reseteado a 0");
+        }
+        
+        // 2. Resetear en UIManagerZanahorias si existe
+        UIManagerZanahorias uiZanahorias = FindObjectOfType<UIManagerZanahorias>();
+        if (uiZanahorias != null)
+        {
+            // Acceder directamente a la variable pública y resetearla
+            uiZanahorias.zanahoriasTotales = 0;
+            uiZanahorias.GuardarZanahorias(); // Forzar guardado
+            Debug.LogError("✅ UIManagerZanahorias reseteado a 0");
+        }
+        
+        // 3. Limpiar PlayerPrefs múltiples veces para asegurar
+        PlayerPrefs.SetInt("Zanahorias", 0);
+        PlayerPrefs.SetInt("Monedas", 0);
+        PlayerPrefs.SetFloat("DineroJugador", 0f);
+        PlayerPrefs.Save();
+        
+        // 4. Verificar que efectivamente se guardó
+        int verificacion = PlayerPrefs.GetInt("Zanahorias", -1);
+        Debug.LogError($"🔍 VERIFICACIÓN PlayerPrefs: {verificacion}");
+        
+        // 5. Forzar actualización inmediata de todos los sistemas de UI
+        ActualizarTodosLosSistemasUI();
+        
+        Debug.LogError("✅ RESETEO COMPLETO DE ZANAHORIAS TERMINADO");
+    }
     
-    private void OcultarPanel()
+    // 🆕 MÉTODO PARA ACTUALIZAR TODOS LOS SISTEMAS DE UI
+    private void ActualizarTodosLosSistemasUI()
+    {
+        // Actualizar SistemaMonedas UI
+        SistemaMonedas sistemaMonedas = FindObjectOfType<SistemaMonedas>();
+        if (sistemaMonedas != null)
+        {
+            sistemaMonedas.ActualizarDisplayCompleto();
+        }
+        
+        // Actualizar UIManagerZanahorias UI
+        UIManagerZanahorias uiZanahorias = FindObjectOfType<UIManagerZanahorias>();
+        if (uiZanahorias != null)
+        {
+            uiZanahorias.ActualizarTextoZanahorias();
+        }
+        
+        // Buscar y actualizar otros managers de UI que puedan mostrar monedas
+        MonoBehaviour[] todosScripts = FindObjectsByType<MonoBehaviour>(FindObjectsSortMode.None);
+        foreach (MonoBehaviour script in todosScripts)
+        {
+            // Buscar métodos que puedan actualizar la UI de monedas
+            var metodoActualizar = script.GetType().GetMethod("ActualizarUIMonedas");
+            if (metodoActualizar != null)
+            {
+                metodoActualizar.Invoke(script, null);
+            }
+        }
+    }
+
+    private void LimpiarSistemasAntesCambioEscena()
+    {
+        Debug.LogError("🧹 LIMPIANDO SISTEMAS ANTES DEL CAMBIO...");
+        
+        StopAllCoroutines();
+        CancelInvoke();
+        
+        // Limpiar zombies
+        ControladorZombies[] controladores = FindObjectsByType<ControladorZombies>(FindObjectsSortMode.None);
+        foreach (var controlador in controladores)
+        {
+            if (controlador != null)
+            {
+                controlador.StopAllCoroutines();
+                controlador.CancelInvoke();
+                controlador.DestruirTodosLosZombies();
+            }
+        }
+        
+        // Limpiar enemigos
+        ControladorEnemigo[] enemigos = FindObjectsByType<ControladorEnemigo>(FindObjectsSortMode.None);
+        foreach (var enemigo in enemigos)
+        {
+            if (enemigo != null)
+            {
+                enemigo.StopAllCoroutines();
+                enemigo.CancelInvoke();
+                Destroy(enemigo.gameObject);
+            }
+        }
+        
+        Debug.LogError("✅ LIMPIEZA COMPLETA");
+    }
+
+    public void OcultarPanelMuerte()
     {
         panelMostrado = false;
-        
-        if (canvasMuerte != null)
-        {
-            canvasMuerte.gameObject.SetActive(false);
-        }
-        
-        if (panelMuerte != null)
-        {
-            panelMuerte.SetActive(false);
-        }
-        
-        // Mantener juego normal y cursor visible
+
+        if (canvasMuerte != null) canvasMuerte.gameObject.SetActive(false);
+        if (panelMuerte != null) panelMuerte.SetActive(false);
+
+        // Restaurar tiempo
         Time.timeScale = 1f;
+
+        // FORZAR cursor visible
         Cursor.lockState = CursorLockMode.None;
         Cursor.visible = true;
-        
+
         if (mostrarDebug)
         {
-            Debug.LogError("❌ PANEL DE MUERTE OCULTADO - CURSOR VISIBLE");
+            Debug.LogError("💀 PANEL DE MUERTE OCULTADO - TIEMPO RESTAURADO");
         }
     }
-    
-    // Método estático para limpiar instancia
+
+    // Métodos estáticos para acceso global
+    public static void MostrarPanelMuerteEstatico()
+    {
+        if (instanciaActual != null)
+        {
+            instanciaActual.MostrarPanelMuerte();
+        }
+        else
+        {
+            Debug.LogError("❌ No existe instancia de CanvasMuerte");
+        }
+    }
+
     public static void LimpiarInstancia()
     {
-        instanciaActual = null;
-    }
-    
-    void OnDestroy()
-    {
-        if (instanciaActual == this)
+        if (instanciaActual != null)
         {
+            instanciaActual.StopAllCoroutines();
+            instanciaActual.CancelInvoke();
+            if (instanciaActual.gameObject != null)
+            {
+                Destroy(instanciaActual.gameObject);
+            }
             instanciaActual = null;
+        }
+    }
+
+    // Métodos de testing
+    [ContextMenu("🧪 Test - Mostrar Panel Muerte")]
+    public void TestMostrarPanel()
+    {
+        MostrarPanelMuerte();
+    }
+
+    [ContextMenu("🧪 Test - Simular 15 Zanahorias")]
+    public void TestSimularZanahorias()
+    {
+        SistemaMonedas sistemaMonedas = FindObjectOfType<SistemaMonedas>();
+        if (sistemaMonedas != null)
+        {
+            sistemaMonedas.SetZanahorias(15);
+            ActualizarContadorZanahorias();
+            Debug.LogError("🧪 Simulando 15 zanahorias para test");
+        }
+    }
+
+    [ContextMenu("🧪 Test - Simular 5 Zanahorias")]
+    public void TestSimularPocasZanahorias()
+    {
+        SistemaMonedas sistemaMonedas = FindObjectOfType<SistemaMonedas>();
+        if (sistemaMonedas != null)
+        {
+            sistemaMonedas.SetZanahorias(5);
+            ActualizarContadorZanahorias();
+            Debug.LogError("🧪 Simulando 5 zanahorias para test");
         }
     }
 }

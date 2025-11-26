@@ -23,6 +23,10 @@ public class UIManagerZanahorias : MonoBehaviour
     [SerializeField] private Image fondoPanel;
     [SerializeField] private Animator animatorTexto;
     
+    [Header("💰 SISTEMA DE ZANAHORIAS")]
+    [SerializeField] public int zanahoriasTotales = 0; // 🆕 VARIABLE FALTANTE
+
+
     private SistemaMonedas sistemaMonedas;
     private int ultimasMonedas = 0;
     
@@ -32,10 +36,7 @@ public class UIManagerZanahorias : MonoBehaviour
         BuscarSistemaMonedas();
         
         // Crear UI si es necesario
-        if (crearUIAutomaticamente)
-        {
-            CrearUIZanahorias();
-        }
+
         
         // Configurar UI
         ConfigurarUI();
@@ -61,77 +62,7 @@ public class UIManagerZanahorias : MonoBehaviour
         }
     }
     
-    private void CrearUIZanahorias()
-    {
-        if (mostrarDebug)
-        {
-            Debug.LogError("🎨 CREANDO UI DE ZANAHORIAS...");
-        }
-        
-        // Crear Canvas
-        GameObject canvasObj = new GameObject("Canvas_ZanahoriasUI");
-        canvas = canvasObj.AddComponent<Canvas>();
-        canvas.renderMode = RenderMode.ScreenSpaceOverlay;
-        canvas.sortingOrder = 200; // Alto para estar visible
-        
-        CanvasScaler scaler = canvasObj.AddComponent<CanvasScaler>();
-        scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-        scaler.referenceResolution = new Vector2(1920f, 1080f);
-        scaler.screenMatchMode = CanvasScaler.ScreenMatchMode.MatchWidthOrHeight;
-        
-        canvasObj.AddComponent<GraphicRaycaster>();
-        
-        // Crear panel contenedor
-        panelZanahorias = new GameObject("Panel_Zanahorias");
-        panelZanahorias.transform.SetParent(canvas.transform, false);
-        
-        // Fondo del panel
-        fondoPanel = panelZanahorias.AddComponent<Image>();
-        fondoPanel.color = colorFondo;
-        
-        RectTransform rectPanel = panelZanahorias.GetComponent<RectTransform>();
-        rectPanel.sizeDelta = new Vector2(220f, 60f);
-        rectPanel.anchorMin = new Vector2(0f, 1f); // Esquina superior izquierda
-        rectPanel.anchorMax = new Vector2(0f, 1f);
-        rectPanel.pivot = new Vector2(0f, 1f);
-        rectPanel.anchoredPosition = posicionUI;
-        
-        // Crear texto
-        GameObject textoObj = new GameObject("Texto_Zanahorias");
-        textoObj.transform.SetParent(panelZanahorias.transform, false);
-        
-        textoZanahorias = textoObj.AddComponent<TextMeshProUGUI>();
-        textoZanahorias.text = "🥕 0";
-        textoZanahorias.fontSize = tamañoTexto;
-        textoZanahorias.color = colorTexto;
-        textoZanahorias.fontStyle = FontStyles.Bold;
-        textoZanahorias.alignment = TextAlignmentOptions.Left;
-        
-        RectTransform rectTexto = textoObj.GetComponent<RectTransform>();
-        rectTexto.anchorMin = Vector2.zero;
-        rectTexto.anchorMax = Vector2.one;
-        rectTexto.offsetMin = new Vector2(10f, 5f);
-        rectTexto.offsetMax = new Vector2(-10f, -5f);
-        
-        // Agregar animator para efectos
-        if (animarCambios)
-        {
-            animatorTexto = textoObj.AddComponent<Animator>();
-            CrearAnimatorController();
-        }
-        
-        // Configurar como DontDestroyOnLoad si es persistente
-        if (persistirEntreTodas && canvas != null)
-        {
-            DontDestroyOnLoad(canvas.gameObject);
-        }
-        
-        if (mostrarDebug)
-        {
-            Debug.LogError("✅ UI DE ZANAHORIAS CREADA");
-        }
-    }
-    
+
     private void CrearAnimatorController()
     {
         // Crear animator controller básico para efectos
@@ -179,7 +110,7 @@ public class UIManagerZanahorias : MonoBehaviour
     {
         if (textoZanahorias != null)
         {
-            textoZanahorias.text = $"🥕 {cantidad}";
+            textoZanahorias.text = $" {cantidad}";
         }
     }
     
@@ -230,10 +161,14 @@ public class UIManagerZanahorias : MonoBehaviour
         textoZanahorias.transform.localScale = escalaOriginal;
     }
     
-    // 🆕 MÉTODO PÚBLICO PARA OBTENER EL TEXTO (REQUERIDO POR SistemaMonedas)
+    // 🔧 REMOVER MÉTODOS - AHORA ESTÁN EN SistemaMonedas
+    // Los métodos GetZanahorias(), GastarZanahorias(), SetZanahorias() 
+    // se movieron a SistemaMonedas donde pertenecen
+
+    // 🆕 MÉTODO PARA QUE SistemaMonedas PUEDA ACCEDER AL TEXTO
     public TextMeshProUGUI GetTextoMonedas()
     {
-        return textoZanahorias;
+        return textoZanahorias; // Retornar el texto de zanahorias como texto de monedas
     }
     
     public void MostrarUI()
@@ -252,6 +187,64 @@ public class UIManagerZanahorias : MonoBehaviour
         }
     }
     
+    // 🆕 MÉTODO PÚBLICO PARA FORZAR ACTUALIZACIÓN DE TEXTO
+    public void ActualizarTextoZanahorias()
+    {
+        if (textoZanahorias != null)
+        {
+            textoZanahorias.text = $"🥕 {zanahoriasTotales}";
+            
+            if (mostrarDebug)
+            {
+                Debug.LogError($"🥕 TEXTO ACTUALIZADO: {zanahoriasTotales}");
+            }
+        }
+        
+        // Forzar actualización del canvas
+        if (textoZanahorias != null && textoZanahorias.canvas != null)
+        {
+            Canvas.ForceUpdateCanvases();
+        }
+    }
+
+    // 🔧 MÉTODO MEJORADO PARA GUARDAR
+    public void GuardarZanahorias()
+    {
+        PlayerPrefs.SetInt("Zanahorias", zanahoriasTotales);
+        PlayerPrefs.SetInt("Monedas", zanahoriasTotales); // También como Monedas para compatibilidad
+        PlayerPrefs.Save();
+        
+        if (mostrarDebug)
+        {
+            Debug.LogError($"💾 ZANAHORIAS GUARDADAS: {zanahoriasTotales}");
+        }
+    }
+
+    // 🆕 MÉTODO PARA RESETEAR COMPLETAMENTE
+    public void ResetearZanahorias()
+    {
+        zanahoriasTotales = 0;
+        GuardarZanahorias();
+        ActualizarTextoZanahorias();
+        
+        Debug.LogError("🔄 ZANAHORIAS RESETEADAS A 0");
+    }
+
+    // 🆕 MÉTODO PARA AGREGAR ZANAHORIAS
+    public void AgregarZanahorias(int cantidad)
+    {
+        if (cantidad <= 0) return;
+        
+        zanahoriasTotales += cantidad;
+        GuardarZanahorias();
+        ActualizarTextoZanahorias();
+        
+        if (mostrarDebug)
+        {
+            Debug.LogError($"🥕 ZANAHORIAS AGREGADAS: +{cantidad} | Total: {zanahoriasTotales}");
+        }
+    }
+
     [ContextMenu("🔧 Test - Recrear UI")]
     public void TestRecrearUI()
     {
@@ -264,7 +257,6 @@ public class UIManagerZanahorias : MonoBehaviour
         panelZanahorias = null;
         textoZanahorias = null;
         
-        CrearUIZanahorias();
         ConfigurarUI();
     }
 }

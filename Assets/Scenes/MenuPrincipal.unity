@@ -455,7 +455,7 @@ MonoBehaviour:
   panelMenuPrincipal: {fileID: 1389098153}
   panelOpciones: {fileID: 0}
   panelCreditos: {fileID: 0}
-  musicaMenu: {fileID: 0}
+  musicaMenu: {fileID: 8300000, guid: 7329d685ac46d44f1b1cc4cd0d35050e, type: 3}
   sonidoBoton: {fileID: 0}
   audioSource: {fileID: 0}
 --- !u!4 &1389098155

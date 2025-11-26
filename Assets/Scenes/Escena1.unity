@@ -288,6 +288,61 @@ Transform:
   - {fileID: 452117503}
   m_Father: {fileID: 371025273}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &107859405
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 107859407}
+  - component: {fileID: 107859406}
+  m_Layer: 0
+  m_Name: GameObject (2)
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &107859406
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 107859405}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 838f79e718a684062b97f3cf68d966a0, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::SistemaAudioEscena
+  musicaEscena1: {fileID: 8300000, guid: e51cfdf44dc854bcaa2b3d5925fd986c, type: 3}
+  musicaEscena2: {fileID: 0}
+  musicaMenuPrincipal: {fileID: 0}
+  musicaPorDefecto: {fileID: 0}
+  volumenMusica: 0.8
+  reproducirEnBucle: 1
+  fadeBetweenTracks: 1
+  tiempoFade: 2
+  persistirEntreEscenas: 0
+  mostrarDebug: 1
+  audioSource: {fileID: 0}
+--- !u!4 &107859407
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 107859405}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: -155.05289, y: 84.1235, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &141544211
 GameObject:
   m_ObjectHideFlags: 0
@@ -409,6 +464,158 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 141544211}
   m_CullTransparentMesh: 1
+--- !u!1 &148055936
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 148055937}
+  - component: {fileID: 148055940}
+  - component: {fileID: 148055939}
+  - component: {fileID: 148055938}
+  m_Layer: 6
+  m_Name: topes (1)
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &148055937
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 148055936}
+  serializedVersion: 2
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalPosition: {x: 9.81, y: -3.21, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 1783309418}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!66 &148055938
+CompositeCollider2D:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 148055936}
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Density: 1
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_ForceSendLayers:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  m_ForceReceiveLayers:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  m_ContactCaptureLayers:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  m_CallbackLayers:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  m_IsTrigger: 0
+  m_UsedByEffector: 0
+  m_CompositeOperation: 0
+  m_CompositeOrder: 0
+  m_Offset: {x: 0, y: 0}
+  m_GeometryType: 0
+  m_GenerationType: 0
+  m_EdgeRadius: 0
+  m_ColliderPaths: []
+  m_CompositePaths:
+    m_Paths: []
+  m_VertexDistance: 0.0005
+  m_OffsetDistance: 0.00005
+  m_UseDelaunayMesh: 0
+  m_CompositeGameObject: {fileID: 148055936}
+--- !u!50 &148055939
+Rigidbody2D:
+  serializedVersion: 5
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 148055936}
+  m_BodyType: 1
+  m_Simulated: 1
+  m_UseFullKinematicContacts: 0
+  m_UseAutoMass: 0
+  m_Mass: 1
+  m_LinearDamping: 0
+  m_AngularDamping: 0.05
+  m_GravityScale: 1
+  m_Material: {fileID: 6200000, guid: 4bf272b7889ab46399897071604c2a93, type: 2}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_Interpolate: 0
+  m_SleepingMode: 1
+  m_CollisionDetection: 1
+  m_Constraints: 4
+--- !u!61 &148055940
+BoxCollider2D:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 148055936}
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Density: 1
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_ForceSendLayers:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  m_ForceReceiveLayers:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  m_ContactCaptureLayers:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  m_CallbackLayers:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  m_IsTrigger: 0
+  m_UsedByEffector: 0
+  m_CompositeOperation: 0
+  m_CompositeOrder: 0
+  m_Offset: {x: 0.3604312, y: 1.7270646}
+  m_SpriteTilingProperty:
+    border: {x: 0, y: 0, z: 0, w: 0}
+    pivot: {x: 0, y: 0}
+    oldSize: {x: 0, y: 0}
+    newSize: {x: 0, y: 0}
+    adaptiveTilingThreshold: 0
+    drawMode: 0
+    adaptiveTiling: 0
+  m_AutoTiling: 0
+  m_Size: {x: 5.3852415, y: 4.454129}
+  m_EdgeRadius: 0
 --- !u!1 &152482142
 GameObject:
   m_ObjectHideFlags: 0
@@ -1208,17 +1415,19 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::UIManagerZanahorias
   crearUIAutomaticamente: 1
-  mostrarDebug: 1
   persistirEntreTodas: 1
+  mostrarDebug: 1
   posicionUI: {x: 20, y: 20}
+  "tama\xF1oTexto": 24
   colorTexto: {r: 1, g: 1, b: 1, a: 1}
   colorFondo: {r: 0, g: 0, b: 0, a: 0.7}
-  "tama\xF1oTexto": 24
-  mostrarIcono: 1
   animarCambios: 1
-  duracionAnimacion: 0.5
-  efectoParpadeo: 1
-  colorCambio: {r: 0, g: 1, b: 0, a: 1}
+  canvas: {fileID: 989927459}
+  panelZanahorias: {fileID: 989927456}
+  textoZanahorias: {fileID: 83156303}
+  fondoPanel: {fileID: 1987544186}
+  animatorTexto: {fileID: 0}
+  zanahoriasTotales: 0
 --- !u!4 &240298969
 Transform:
   m_ObjectHideFlags: 0
@@ -1727,11 +1936,10 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::SistemaMonedas
   monedasIniciales: 0
-  persistirEntreTodas: 1
   mostrarDebug: 1
-  textoMonedas: {fileID: 83156303}
   crearUIAutomaticamente: 1
-  posicionUI: {x: 100, y: 50}
+  textoMonedas: {fileID: 83156303}
+  canvasMonedas: {fileID: 0}
 --- !u!114 &371025277
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -4511,7 +4719,7 @@ GameObject:
   - component: {fileID: 940919992}
   - component: {fileID: 940919991}
   - component: {fileID: 940919993}
-  m_Layer: 0
+  m_Layer: 6
   m_Name: topes
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -35382,6 +35590,7 @@ Transform:
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 940919990}
+  - {fileID: 148055937}
   - {fileID: 619589611}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
@@ -36757,3 +36966,4 @@ SceneRoots:
   - {fileID: 1363273819}
   - {fileID: 1431268472}
   - {fileID: 1409501471}
+  - {fileID: 107859407}

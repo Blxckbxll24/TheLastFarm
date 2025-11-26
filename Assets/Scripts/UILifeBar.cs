@@ -126,7 +126,7 @@ public class UILifeBar : MonoBehaviour
         rectContenedor.anchorMin = new Vector2(0f, 1f); // Esquina superior izquierda
         rectContenedor.anchorMax = new Vector2(0f, 1f);
         rectContenedor.pivot = new Vector2(0f, 1f);
-        rectContenedor.anchoredPosition = new Vector2(350f, -20f); // Margin desde la esquina
+        rectContenedor.anchoredPosition = new Vector2(800f, -20f); // Margin desde la esquina
         rectContenedor.sizeDelta = new Vector2(300f, 60f);
         
         // Agregar CanvasGroup para efectos

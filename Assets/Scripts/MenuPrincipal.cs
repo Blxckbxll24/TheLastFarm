@@ -75,10 +75,13 @@ public class MenuPrincipal : MonoBehaviour
         Cursor.lockState = CursorLockMode.None;
         Cursor.visible = true;
         
-        // 3. Limpiar canvas de muerte si existe
+        // 🆕 3. RESETEAR MONEDAS/ZANAHORIAS COMPLETAMENTE
+        ResetearMonedasCompleto();
+        
+        // 4. Limpiar canvas de muerte si existe
         CanvasMuerte.LimpiarInstancia();
         
-        // 4. Limpiar jugadores persistentes
+        // 5. Limpiar jugadores persistentes
         JugadorPersistente[] jugadoresPersistentes = FindObjectsByType<JugadorPersistente>(FindObjectsSortMode.None);
         foreach (var jugador in jugadoresPersistentes)
         {
@@ -88,7 +91,7 @@ public class MenuPrincipal : MonoBehaviour
             }
         }
         
-        // 5. Limpiar menús de pausa que puedan quedar
+        // 6. Limpiar menús de pausa que puedan quedar
         MenuPausa[] menusPausa = FindObjectsByType<MenuPausa>(FindObjectsSortMode.None);
         foreach (var menu in menusPausa)
         {
@@ -100,12 +103,54 @@ public class MenuPrincipal : MonoBehaviour
             }
         }
         
-        // 6. Forzar garbage collection
+        // 7. Forzar garbage collection
         System.GC.Collect();
         
         Debug.LogError("✅ ESTADO DEL JUEGO LIMPIADO EN MENÚ PRINCIPAL - CURSOR VISIBLE");
     }
-    
+
+    // 🆕 MÉTODO PARA RESETEAR MONEDAS COMPLETAMENTE EN EL MENÚ PRINCIPAL
+    private void ResetearMonedasCompleto()
+    {
+        Debug.LogError("💰 RESETEANDO MONEDAS EN MENÚ PRINCIPAL...");
+        
+        // 1. Limpiar PlayerPrefs de todas las variantes de monedas
+        PlayerPrefs.SetInt("Zanahorias", 0);
+        PlayerPrefs.SetInt("Monedas", 0);
+        PlayerPrefs.SetFloat("DineroJugador", 0f);
+        PlayerPrefs.Save();
+        
+        // 2. Buscar y resetear SistemaMonedas si existe
+        SistemaMonedas sistemaMonedas = FindObjectOfType<SistemaMonedas>();
+        if (sistemaMonedas != null)
+        {
+            sistemaMonedas.SetMonedas(0);
+            sistemaMonedas.GuardarConfiguracion();
+        }
+        
+        // 3. Buscar y resetear UIManagerZanahorias si existe
+        UIManagerZanahorias uiZanahorias = FindObjectOfType<UIManagerZanahorias>();
+        if (uiZanahorias != null)
+        {
+            uiZanahorias.ResetearZanahorias();
+        }
+        
+        // 4. Destruir instancias persistentes de sistemas de monedas
+        SistemaMonedas[] todosSistemas = FindObjectsByType<SistemaMonedas>(FindObjectsSortMode.None);
+        foreach (var sistema in todosSistemas)
+        {
+            if (sistema != null)
+            {
+                sistema.StopAllCoroutines();
+                sistema.CancelInvoke();
+                // No destruir aquí para evitar errores, solo resetear
+                sistema.SetMonedas(0);
+            }
+        }
+        
+        Debug.LogError("✅ MONEDAS RESETEADAS COMPLETAMENTE EN MENÚ PRINCIPAL");
+    }
+
     [ContextMenu("🎮 Crear Menú Completo")]
     public void CrearMenuCompleto()
     {
@@ -379,7 +424,6 @@ public class MenuPrincipal : MonoBehaviour
         CrearTextoInfo(panelCentral, "TECNOLOGÍAS:", new Vector2(0f, -20f), 24, FontStyles.Bold);
         CrearTextoInfo(panelCentral, "• Unity 2D Engine", new Vector2(0f, -60f));
         CrearTextoInfo(panelCentral, "• C# Programming", new Vector2(0f, -90f));
-        CrearTextoInfo(panelCentral, "• GitHub Copilot", new Vector2(0f, -120f));
         
         CrearTextoInfo(panelCentral, "GRACIAS POR JUGAR!", new Vector2(0f, -180f), 24, FontStyles.Bold, Color.green);
         
@@ -505,8 +549,15 @@ public class MenuPrincipal : MonoBehaviour
         {
             audioSource.clip = musicaMenu;
             audioSource.loop = true;
-            audioSource.volume = 0.6f;
+            audioSource.volume = 0.6f; // Volumen fijo
+            
+            // 🔧 REPRODUCIR INMEDIATAMENTE
             audioSource.Play();
+            
+            if (mostrarDebug)
+            {
+                Debug.LogError("🎵 MÚSICA DEL MENÚ INICIADA");
+            }
         }
     }
     
