@@ -38638,7 +38638,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::ControladorZombies
   prefabZombie: {fileID: 3860283063799350164, guid: 379b6013e1862459d9c64dc63ab1ed73, type: 3}
-  cantidadZombies: 10
+  cantidadZombies: 15
   rangoSpawn: 10
   tiempoEntreSpawns: 1
   spawnearAlInicio: 1
@@ -38648,10 +38648,10 @@ MonoBehaviour:
   alturaRaycast: 10
   distanciaRaycast: 20
   offsetSuelo: 1
-  saludZombieBase: 50
+  saludZombieBase: 60
   velocidadZombieBase: 2.5
-  "da\xF1oZombieBase": 20
-  respawnActivado: 1
+  "da\xF1oZombieBase": 15
+  respawnActivado: 0
   tiempoRespawn: 1
   maximoZombiesVivos: 100
 --- !u!4 &1904576112
