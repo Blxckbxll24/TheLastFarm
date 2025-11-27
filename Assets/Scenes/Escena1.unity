@@ -298,6 +298,7 @@ GameObject:
   m_Component:
   - component: {fileID: 107859407}
   - component: {fileID: 107859406}
+  - component: {fileID: 107859408}
   m_Layer: 0
   m_Name: GameObject (2)
   m_TagString: Untagged
@@ -343,6 +344,31 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &107859408
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 107859405}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5295487fd6b014c8cad1b950ef2a5a6a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CanvasControles
+  teclaParaMostrar: 104
+  mostrarAlInicio: 1
+  tiempoAutoOcultar: 8
+  autoOcultarActivado: 1
+  mostrarDebug: 1
+  canvasControles: {fileID: 0}
+  panelControles: {fileID: 0}
+  botonCerrar: {fileID: 0}
+  crearUIAutomaticamente: 1
+  colorFondo: {r: 0.1, g: 0.1, b: 0.1, a: 0.85}
+  colorTitulo: {r: 0.3, g: 1, b: 0.4, a: 1}
+  colorTexto: {r: 1, g: 1, b: 1, a: 1}
+  colorTecla: {r: 1, g: 1, b: 0.3, a: 1}
 --- !u!1 &141544211
 GameObject:
   m_ObjectHideFlags: 0

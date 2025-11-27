@@ -568,8 +568,13 @@ public class MenuPrincipal : MonoBehaviour
         ReproducirSonidoBoton();
         
         if (mostrarDebug)
-            Debug.LogError("🎮 INICIANDO JUEGO - Cargando escena: " + nombreEscenaJuego);
+            Debug.LogError("🎮 INICIANDO JUEGO - Mostrando historia primero...");
         
+        // 🆕 MOSTRAR HISTORIA ANTES DE IR AL JUEGO
+        CanvasHistoriaIntro.MostrarHistoriaDesdeMenu();
+        
+        // El resto del código original como fallback
+        /* 
         try
         {
             // Intentar cargar la escena directamente
@@ -599,6 +604,7 @@ public class MenuPrincipal : MonoBehaviour
                 }
             }
         }
+        */
     }
     
     private void MostrarSolucionesEscena()
