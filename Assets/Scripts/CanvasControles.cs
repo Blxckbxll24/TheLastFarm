@@ -145,7 +145,11 @@ public class CanvasControles : MonoBehaviour
             GameObject canvasObj = new GameObject("Canvas_Controles");
             canvasControles = canvasObj.AddComponent<Canvas>();
             canvasControles.renderMode = RenderMode.ScreenSpaceOverlay;
-            canvasControles.sortingOrder = 9999; // 🔧 MUY ALTO para estar por encima de TODO
+            canvasControles.sortingOrder = 5000; // 🔧 REDUCIDO de 9999 para estar debajo de UI importante
+            
+            // 🔧 ASEGURAR QUE SOLO MANEJE SUS PROPIOS ELEMENTOS
+            canvasControles.sortingLayerName = "UI";
+            canvasControles.overrideSorting = true;
             
             CanvasScaler scaler = canvasObj.AddComponent<CanvasScaler>();
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
@@ -155,15 +159,7 @@ public class CanvasControles : MonoBehaviour
             
             canvasObj.AddComponent<GraphicRaycaster>();
             
-            // 🔧 ASEGURAR QUE ESTÉ EN LA CAPA MÁS ALTA
-            canvasControles.sortingLayerName = "UI"; // O "Default" si no tienes layer UI
-            canvasControles.additionalShaderChannels = AdditionalCanvasShaderChannels.None;
-            canvasControles.overrideSorting = true;
-            canvasControles.sortingOrder = 9999;
-            
-            // 🆕 CONFIGURAR CLIPPING RECT PARA MANTENER DENTRO DE LÍMITES
-            canvasControles.pixelPerfect = true;
-            
+            // 🔧 ASEGURAR QUE ESTÉ EN LA CAPA MÁS ALTA SOLO CUANDO SEA NECESARIO
             if (mostrarDebug)
             {
                 Debug.LogError($"📱 Canvas controles creado con sorting order: {canvasControles.sortingOrder}");
@@ -437,28 +433,12 @@ public class CanvasControles : MonoBehaviour
         
         if (canvasControles != null)
         {
-            // 🔧 VERIFICAR Y FORZAR SORTING ORDER AL MOSTRAR
-            canvasControles.sortingOrder = 9999;
+            // 🔧 NO FORZAR SORTING ORDER MUY ALTO - solo lo necesario
+            canvasControles.sortingOrder = 5000; // Suficiente para estar por encima del juego
             canvasControles.overrideSorting = true;
             canvasControles.gameObject.SetActive(true);
             
-            // 🔧 VERIFICAR QUE ESTÉ EN EL FRENTE
-            Canvas[] todosCanvas = FindObjectsByType<Canvas>(FindObjectsSortMode.None);
-            int maxSortingOrder = 0;
-            foreach (Canvas canvas in todosCanvas)
-            {
-                if (canvas != canvasControles && canvas.sortingOrder > maxSortingOrder)
-                {
-                    maxSortingOrder = canvas.sortingOrder;
-                }
-            }
-            
-            // Asegurar que esté por encima de todos
-            if (canvasControles.sortingOrder <= maxSortingOrder)
-            {
-                canvasControles.sortingOrder = maxSortingOrder + 100;
-                Debug.LogError($"🔧 Sorting order ajustado a: {canvasControles.sortingOrder}");
-            }
+            // 🔧 NO buscar otros canvas para no interferir con LifeBar
         }
         
         if (panelControles != null)
